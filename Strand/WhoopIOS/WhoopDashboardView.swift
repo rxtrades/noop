@@ -17,7 +17,7 @@ struct WhoopDashboardView: View {
                     VStack(spacing: 0) {
                         if let today = repo.today ?? repo.days.last {
                             dashboardRow("Recovery", value: today.recovery.map { "\(Int($0.rounded()))%" } ?? "—",
-                                         accent: today.recovery.map { StrandPalette.recoveryColor($0) })
+                                         accent: today.recovery.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.textSecondary)
                             rowDivider
                             dashboardRow("Day Strain", value: today.strain.map { String(format: "%.1f", $0) } ?? "—",
                                          accent: StrandPalette.effortColor)

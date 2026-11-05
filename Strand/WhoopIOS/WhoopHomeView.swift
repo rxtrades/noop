@@ -44,7 +44,7 @@ struct WhoopHomeView: View {
                         onPreviousDay: { selectedDayOffset = min(selectedDayOffset + 1, maxDayOffset) },
                         onNextDay: selectedDayOffset > 0,
                         onNextDayTap: { selectedDayOffset = max(0, selectedDayOffset - 1) },
-                        batteryPct: model.live.batteryPct,
+                        batteryPct: model.live.batteryPct.map { Int($0.rounded()) },
                         connected: model.live.connected
                     )
                     metricRingsRow
@@ -180,7 +180,7 @@ struct WhoopHomeView: View {
             label: "Strain",
             fraction: strain != nil ? frac : 0,
             displayValue: strain ?? 0,
-            format: { strain != nil ? UnitFormatter.effortValue($0, scale: effortScale) : "—" },
+            format: { strain != nil ? UnitFormatter.effortDisplay($0, scale: effortScale) : "—" },
             accent: StrandPalette.effortColor
         )
     }
