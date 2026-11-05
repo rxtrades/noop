@@ -65,13 +65,16 @@ struct RootTabView: View {
     @AppStorage(MoreSectionPrefs.storageKey) private var expandedMoreSectionsCSV = MoreSectionPrefs.defaultCSV
     private var expandedMoreSections: Set<String> { MoreSectionPrefs.decode(expandedMoreSectionsCSV) }
 
-    /// V8 liquid redesign is the default Today; the Settings toggle lets a user fall back to the classic
-    /// Today if they prefer it (keyed identically to the SettingsView toggle). Default ON.
-    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
+    /// WHOOP-inspired dark home (iOS). Default ON; Settings can fall back to Liquid or classic Today.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    /// V8 liquid redesign; used when WHOOP home is off. Default OFF while WHOOP home is the iOS default.
+    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = false
 
-    /// The Today tab root, honouring the liquid/classic preference.
+    /// The Today tab root, honouring the WHOOP / liquid / classic preference.
     @ViewBuilder private var todayTabRoot: some View {
-        if liquidTodayEnabled { LiquidTodayView() } else { TodayView() }
+        if whoopHomeEnabled { WhoopHomeView() }
+        else if liquidTodayEnabled { LiquidTodayView() }
+        else { TodayView() }
     }
 
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the

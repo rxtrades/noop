@@ -1861,6 +1861,9 @@ struct SettingsView: View {
     /// model — a 4.0 owner still needs the export to share decoded streams. The SpO2 candidate card is
     /// split out the same way (see `spo2CandidateCard`'s comment) — it is NOT WHOOP-5/MG-specific.
     @ViewBuilder private var experimentalCard: some View {
+        #if os(iOS)
+        whoopHomeCard
+        #endif
         liquidTodayCard
         liveSessionsCard
         // WHOOP 5/MG protocol research now lives in Test Centre. Everyday Settings no longer carries
@@ -1871,9 +1874,28 @@ struct SettingsView: View {
         rawSensorDiagnosticsCard
     }
 
-    /// Opt-in liquid Today redesign (default ON in this build). Off falls back to the
-    /// classic dashboard immediately, no rebuild. Same data either way.
-    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
+    #if os(iOS)
+    /// WHOOP-inspired dark Today (default ON on iOS). Off falls through to Liquid / classic Today toggles.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    private var whoopHomeCard: some View {
+        SettingsSection(
+            icon: "circle.circle",
+            title: "WHOOP-style home",
+            blurb: "True-black Today with Sleep, Recovery, and Strain rings and dark cards. Same data as the classic dashboard."
+        ) {
+            Toggle(isOn: $whoopHomeEnabled) {
+                Text("WHOOP-style Today")
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textPrimary)
+            }
+            .toggleStyle(.switch)
+            .tint(StrandPalette.accent)
+        }
+    }
+    #endif
+
+    /// Opt-in liquid Today redesign. Off falls back to the classic dashboard immediately, no rebuild.
+    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = false
     private var liquidTodayCard: some View {
         SettingsSection(
             icon: "drop.fill",
