@@ -149,6 +149,10 @@ struct RootTabView: View {
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
         .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+        // Whoople: the floating pill is the ONLY bar. Per-tab `.toolbar(.hidden, for: .tabBar)` covers
+        // each root; this UIKit fallback also catches pushed screens that would otherwise re-show it.
+        .onAppear { UITabBar.appearance().isHidden = whoopHomeEnabled }
+        .onChange(of: whoopHomeEnabled) { _, on in UITabBar.appearance().isHidden = on }
         .tint(StrandPalette.accent)
         // Switching Coach off while STANDING on it leaves `selectedTab` pointing at a tag no tab claims
         // any more, which renders as an empty tab rather than as an error. Send that wearer to Today, and
@@ -463,6 +467,7 @@ struct RootTabView: View {
             view
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
+                .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
                 .tabRouteDestinations()
         }
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
@@ -548,7 +553,9 @@ struct RootTabView: View {
                     .background(StrandPalette.surfaceBase.ignoresSafeArea())
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
             }
+            .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)
