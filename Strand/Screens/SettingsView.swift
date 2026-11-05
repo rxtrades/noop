@@ -1881,7 +1881,7 @@ struct SettingsView: View {
         SettingsSection(
             icon: "circle.circle",
             title: "Whoople home",
-            blurb: "True-black Today with Sleep, Recovery, and Strain rings and dark cards. Same data as the classic dashboard."
+            blurb: "True-black home with Sleep, Recovery, and Strain rings. When on, the whole app stays dark so every tab matches Whoople."
         ) {
             Toggle(isOn: $whoopHomeEnabled) {
                 Text("Whoople home screen")

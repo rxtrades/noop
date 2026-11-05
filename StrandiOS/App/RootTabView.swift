@@ -153,6 +153,9 @@ struct RootTabView: View {
         // each root; this UIKit fallback also catches pushed screens that would otherwise re-show it.
         .onAppear { UITabBar.appearance().isHidden = whoopHomeEnabled }
         .onChange(of: whoopHomeEnabled) { _, on in UITabBar.appearance().isHidden = on }
+        // Whoople: lock this shell (and every pushed screen under it) to dark so Trends/Sleep/Coach/More
+        // cannot render the light StrandPalette tokens while Home hard-codes true black.
+        .preferredColorScheme(whoopHomeEnabled ? .dark : nil)
         .tint(StrandPalette.accent)
         // Switching Coach off while STANDING on it leaves `selectedTab` pointing at a tag no tab claims
         // any more, which renders as an empty tab rather than as an error. Send that wearer to Today, and
@@ -465,9 +468,11 @@ struct RootTabView: View {
         // TabRoute values, registered here ONCE per stack (a double registration double-pushes, #38).
         NavigationStack(path: path) {
             view
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+                .toolbarBackground(whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase, for: .navigationBar)
+                .toolbarColorScheme(whoopHomeEnabled ? .dark : nil, for: .navigationBar)
                 .tabRouteDestinations()
         }
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
@@ -550,12 +555,15 @@ struct RootTabView: View {
             // identical at rest — the destination's own surfaceBase background shows through the bar.
             .navigationDestination(for: MoreDestination.self) { route in
                 route.destination
-                    .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                    .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbarBackground(WhoopIOSDesign.background, for: .navigationBar)
+                    .toolbarBackground(whoopHomeEnabled ? .visible : .hidden, for: .navigationBar)
+                    .toolbarColorScheme(whoopHomeEnabled ? .dark : nil, for: .navigationBar)
                     .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
             }
             .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+            .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)

@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 import StrandDesign
 import UserNotifications
 
@@ -39,6 +40,8 @@ struct StrandiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
     /// Appearance preference (System/Light/Dark). Default follows the OS; the Settings picker writes it.
     @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    /// Whoople home (default ON): lock the whole iOS app to dark so every tab matches the true-black home.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
     /// Chart data-colour style (Titanium / Classic throwback). Re-colours gauges + charts.
     /// Classic data ramps (green recovery, blue strain) match the WHOOP-inspired iOS skin; macOS defaults stay titanium.
     @AppStorage(ChartStyle.storageKey) private var chartStyleRaw = ChartStyle.classic.rawValue
@@ -236,7 +239,11 @@ struct StrandiOSApp: App {
                 // v5 L3: the shared stress check-in nudge surface, so the Breathe screen's passive
                 // card observes the SAME instance the central detector (AppModel.evaluateStress) posts to.
                 .environment(\.stressNudgeCenter, model.stressNudgeCenter)
-                .preferredColorScheme(AppearanceMode.resolve(appearanceRaw).colorScheme)
+                .preferredColorScheme(whoopHomeEnabled ? .dark : AppearanceMode.resolve(appearanceRaw).colorScheme)
+                // Belt-and-suspenders: UIKit windows stay dark whenever Whoople chrome is on, so sheets,
+                // alerts and UIKit-backed lists cannot fall back to the phone's light appearance.
+                .onAppear { Self.applyWhoopleInterfaceStyle(whoopHomeEnabled) }
+                .onChange(of: whoopHomeEnabled) { _, on in Self.applyWhoopleInterfaceStyle(on) }
                 // Match SwiftUI format styles to the localization selected by the app's bundles. Language
                 // changes are process-wide on Apple and are applied after the documented reopen.
                 .environment(\.locale, AppLanguage.activeLocale)
@@ -424,6 +431,31 @@ struct StrandiOSApp: App {
     /// last-known bpm on a Lock Screen reads as live and is not. `alert` lights the Lock Screen for this
     /// push — see `LiftLiveActivityController.update`.
     @MainActor
+
+    /// Force every connected window into dark (or back to unspecified) for Whoople mode.
+    private static func applyWhoopleInterfaceStyle(_ whoople: Bool) {
+        let style: UIUserInterfaceStyle = whoople ? .dark : .unspecified
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
+        if whoople {
+            let nav = UINavigationBarAppearance()
+            nav.configureWithOpaqueBackground()
+            nav.backgroundColor = .black
+            nav.titleTextAttributes = [.foregroundColor: UIColor.white]
+            nav.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+            UINavigationBar.appearance().standardAppearance = nav
+            UINavigationBar.appearance().scrollEdgeAppearance = nav
+            UINavigationBar.appearance().compactAppearance = nav
+            UINavigationBar.appearance().tintColor = .white
+            UITableView.appearance().backgroundColor = .black
+            UICollectionView.appearance().backgroundColor = .black
+        }
+    }
+
     private func pushLiftActivity(alert: Bool = false) {
         let system = UnitSystem(rawValue: unitSystemRaw) ?? .metric
         guard let p = liftSession.presentation(system: system) else {

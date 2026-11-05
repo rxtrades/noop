@@ -37,6 +37,10 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     /// at-root re-tap of the active tab (#198 follow-up). Default 0 never changes, so macOS and every
     /// non-tab screen keep their exact prior scroll behaviour.
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
+    #if os(iOS)
+    /// Whoople chrome: flat true-black canvas; suppress day-sky washes that read as "light" on other tabs.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    #endif
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -75,8 +79,13 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
         // on the opaque canvas and stay fully legible (2026-06-23: cards were "losing the data").
         .background(alignment: .top) {
             ZStack(alignment: .top) {
+                #if os(iOS)
+                (whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase)
+                if !whoopHomeEnabled { topBackground }
+                #else
                 StrandPalette.surfaceBase
                 topBackground
+                #endif
             }
             .ignoresSafeArea()
         }
