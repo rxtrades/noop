@@ -1880,11 +1880,11 @@ struct SettingsView: View {
     private var whoopHomeCard: some View {
         SettingsSection(
             icon: "circle.circle",
-            title: "WHOOP-style home",
+            title: "Whoople home",
             blurb: "True-black Today with Sleep, Recovery, and Strain rings and dark cards. Same data as the classic dashboard."
         ) {
             Toggle(isOn: $whoopHomeEnabled) {
-                Text("WHOOP-style Today")
+                Text("Whoople home screen")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textPrimary)
             }
@@ -2362,11 +2362,11 @@ struct SettingsView: View {
         SettingsSection(
             icon: "info.circle.fill",
             title: "About",
-            blurb: "NOOP: all your data, none of the cloud."
+            blurb: "\(ProjectInfo.appName): all your data, none of the cloud."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    Text("NOOP")
+                    Text(ProjectInfo.appName)
                         .font(StrandFont.title2)
                         .foregroundStyle(StrandPalette.textPrimary)
                     StatePill("v\(bundleVersionString)", tone: .neutral, showsDot: false)
@@ -2387,7 +2387,7 @@ struct SettingsView: View {
                             .foregroundStyle(StrandPalette.accent)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("How NOOP works")
+                            Text("How \(ProjectInfo.appName) works")
                                 .font(StrandFont.body)
                                 .foregroundStyle(StrandPalette.textPrimary)
                             Text("Sleep sorting, scores, recording, and where your numbers come from.")

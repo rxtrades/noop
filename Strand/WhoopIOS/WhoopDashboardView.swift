@@ -23,7 +23,7 @@ struct WhoopDashboardView: View {
                                          accent: StrandPalette.effortColor)
                             rowDivider
                             dashboardRow("Sleep", value: today.totalSleepMin.map { formatSleep($0) } ?? "—",
-                                         accent: WhoopIOSColors.sleepAccent)
+                                         accent: WhoopIOSDesign.sleepBlue)
                             rowDivider
                             dashboardRow("HRV", value: today.avgHrv.map { String(format: "%.0f ms", $0) } ?? "—",
                                          accent: StrandPalette.metricCyan)
@@ -48,7 +48,7 @@ struct WhoopDashboardView: View {
             .padding(.top, 12)
             .padding(.bottom, NoopMetrics.tabBarClearance + 24)
         }
-        .background(StrandPalette.surfaceBase.ignoresSafeArea())
+        .background(WhoopIOSDesign.background.ignoresSafeArea())
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
     }

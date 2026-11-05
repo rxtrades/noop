@@ -3,14 +3,6 @@ import SwiftUI
 import UIKit
 import StrandDesign
 
-// MARK: - Shared WHOOP-inspired chrome (iOS only)
-
-enum WhoopIOSColors {
-    static let sleepAccent = Color(hex: "#6FA8E8")
-    static let cardFill = Color(hex: "#1C1C1E")
-    static let cardBorder = Color(hex: "#2C2C2E")
-}
-
 struct WhoopCard<Content: View>: View {
     var content: () -> Content
 
@@ -24,10 +16,10 @@ struct WhoopCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: NoopVisualStyle.cardRadius, style: .continuous)
-                    .fill(WhoopIOSColors.cardFill)
+                    .fill(WhoopIOSDesign.card)
                     .overlay(
                         RoundedRectangle(cornerRadius: NoopVisualStyle.cardRadius, style: .continuous)
-                            .strokeBorder(WhoopIOSColors.cardBorder, lineWidth: 0.5)
+                            .strokeBorder(WhoopIOSDesign.cardBorder, lineWidth: 0.5)
                     )
             )
     }
@@ -45,23 +37,24 @@ struct WhoopSectionHeader: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(StrandFont.overline)
-                .tracking(StrandFont.overlineTracking)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(1.3)
                 .textCase(.uppercase)
                 .foregroundStyle(StrandPalette.textPrimary)
             Spacer(minLength: 0)
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(StrandPalette.textTertiary)
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
             }
         }
     }
 }
 
-/// Date pill + centred NOOP wordmark + strap battery (WHOOP home header pattern).
+/// Profile · streak · TODAY pill · battery + device (WHOOP home header).
 struct WhoopHomeHeader: View {
     var dayLabel: String
+    var streakDays: Int
     var onPreviousDay: () -> Void
     var onNextDay: Bool
     var onNextDayTap: () -> Void
@@ -71,95 +64,92 @@ struct WhoopHomeHeader: View {
     var onDeviceTap: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(alignment: .center) {
+        VStack(spacing: 16) {
+            HStack(alignment: .center, spacing: 8) {
                 Button(action: onProfileTap) {
                     Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22))
-                        .foregroundStyle(StrandPalette.textSecondary)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Profile and settings")
-                Spacer(minLength: 0)
-                HStack(spacing: 0) {
-                    Button(action: onPreviousDay) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .frame(width: 32, height: 32)
+                if streakDays > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(WhoopIOSDesign.streakFlame)
+                            .shadow(color: WhoopIOSDesign.streakFlame.opacity(0.6), radius: 4)
+                        Text("\(streakDays)")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .monospacedDigit()
                     }
-                    .buttonStyle(.plain)
-                    Text(dayLabel)
-                        .font(StrandFont.overline)
-                        .tracking(1.2)
-                        .textCase(.uppercase)
-                        .foregroundStyle(StrandPalette.textPrimary)
-                        .padding(.horizontal, 6)
-                    Button(action: onNextDayTap) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(onNextDay ? StrandPalette.textSecondary : StrandPalette.textTertiary.opacity(0.35))
-                            .frame(width: 32, height: 32)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!onNextDay)
                 }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(StrandPalette.surfaceRaised.opacity(0.85))
-                )
                 Spacer(minLength: 0)
-                Button(action: onDeviceTap) {
-                    HStack(spacing: 6) {
-                        if let batteryPct {
-                            Text("\(batteryPct)%")
-                                .font(StrandFont.caption)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                                .monospacedDigit()
-                        }
-                        Image(systemName: connected ? "applewatch" : "applewatch.slash")
-                            .font(.system(size: 16))
-                            .foregroundStyle(connected ? StrandPalette.statusPositive : StrandPalette.textTertiary)
-                    }
-                    .padding(.horizontal, 4)
-                    .frame(minHeight: 36)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(connected ? "Devices, connected" : "Devices, not connected")
+                datePill
+                Spacer(minLength: 0)
+                deviceCluster
             }
-            Text("NOOP")
-                .font(.system(size: 22, weight: .bold, design: .default))
-                .tracking(6)
-                .foregroundStyle(StrandPalette.textPrimary)
+            WhoopleWordmark(size: 21)
         }
+    }
+
+    private var datePill: some View {
+        HStack(spacing: 0) {
+            Button(action: onPreviousDay) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 11, weight: .bold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            Text(dayLabel)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.1)
+                .textCase(.uppercase)
+                .padding(.horizontal, 4)
+            Button(action: onNextDayTap) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .disabled(!onNextDay)
+            .opacity(onNextDay ? 1 : 0.35)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(Capsule(style: .continuous).fill(WhoopIOSDesign.cardElevated))
+    }
+
+    private var deviceCluster: some View {
+        Button(action: onDeviceTap) {
+            HStack(spacing: 5) {
+                if let batteryPct {
+                    Text("\(batteryPct)%")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(batteryPct <= 15 ? Color.red : WhoopIOSDesign.textSecondary)
+                        .monospacedDigit()
+                }
+                Image(systemName: connected ? "applewatch" : "applewatch.slash")
+                    .font(.system(size: 15))
+                    .foregroundStyle(connected ? WhoopIOSDesign.recoveryGreen : WhoopIOSDesign.textSecondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
-/// Applies UIKit tab-bar styling to match WHOOP's dark floating pill (best-effort on system TabView).
 enum WhoopIOSTabBarAppearance {
+    /// Legacy UIKit tint when the system tab bar is visible (Whoople home off).
     static func apply() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor(red: 28/255, green: 28/255, blue: 30/255, alpha: 1)
         appearance.shadowColor = .clear
-        appearance.stackedLayoutAppearance.normal.iconColor = UIColor(white: 0.55, alpha: 1)
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor(white: 0.55, alpha: 1),
-            .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
-        ]
-        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.white
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor.white,
-            .font: UIFont.systemFont(ofSize: 10, weight: .bold)
-        ]
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor(red: 142/255, green: 142/255, blue: 147/255, alpha: 1)
+        appearance.stackedLayoutAppearance.selected.iconColor = .white
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().unselectedItemTintColor = UIColor(white: 0.55, alpha: 1)
     }
 }
 

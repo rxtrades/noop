@@ -21,17 +21,14 @@ struct WhoopRecoveryDetailView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
-                    Text("NOOP")
-                        .font(.system(size: 14, weight: .medium))
-                        .tracking(4)
-                        .foregroundStyle(StrandPalette.textTertiary)
+                    WhoopleWordmark(size: 13)
                     ZStack {
                         Circle()
                             .stroke(StrandPalette.surfaceInset, lineWidth: 18)
                         Circle()
                             .trim(from: 0, to: CGFloat(min(max(score / 100, 0), 1)))
                             .stroke(
-                                StrandPalette.recoveryColor(score),
+                                WhoopIOSDesign.recoveryAccent(score: score),
                                 style: StrokeStyle(lineWidth: 18, lineCap: .round)
                             )
                             .rotationEffect(.degrees(-90))
@@ -93,7 +90,7 @@ struct WhoopRecoveryDetailView: View {
             }
             .padding(.bottom, NoopMetrics.tabBarClearance + 24)
         }
-        .background(StrandPalette.surfaceBase.ignoresSafeArea())
+        .background(WhoopIOSDesign.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(StrandPalette.surfaceBase, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -113,14 +110,14 @@ struct WhoopMetricsBeakCard<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             Triangle()
-                .fill(WhoopIOSColors.cardFill)
+                .fill(WhoopIOSDesign.card)
                 .frame(width: 18, height: 10)
             VStack(spacing: 0) {
                 content()
             }
             .background(
                 RoundedRectangle(cornerRadius: NoopVisualStyle.cardRadius, style: .continuous)
-                    .fill(WhoopIOSColors.cardFill)
+                    .fill(WhoopIOSDesign.card)
             )
         }
     }

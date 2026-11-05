@@ -21,7 +21,7 @@ public enum NoopVisualStyle {
     public static let divider = Color(light: "#E4E5E9", dark: "#3A3A3C")
 
     public static let primaryText = Color(light: "#17181C", dark: "#FFFFFF")
-    public static let secondaryText = Color(light: "#555861", dark: "#AEAEB2")
+    public static let secondaryText = Color(light: "#555861", dark: "#8E8E93")
     public static let tertiaryText = Color(light: "#7D808A", dark: "#636366")
     #else
     public static let canvas = Color(light: "#F3F4F6", dark: "#1D1E23")

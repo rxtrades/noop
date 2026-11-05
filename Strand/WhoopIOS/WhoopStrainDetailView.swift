@@ -20,17 +20,14 @@ struct WhoopStrainDetailView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
-                    Text("NOOP")
-                        .font(.system(size: 14, weight: .medium))
-                        .tracking(4)
-                        .foregroundStyle(StrandPalette.textTertiary)
+                    WhoopleWordmark(size: 13)
                     ZStack {
                         Circle()
                             .stroke(StrandPalette.surfaceInset, lineWidth: 18)
                         Circle()
                             .trim(from: 0, to: CGFloat(fraction))
                             .stroke(
-                                StrandPalette.effortColor,
+                                WhoopIOSDesign.strainBlue,
                                 style: StrokeStyle(lineWidth: 18, lineCap: .round)
                             )
                             .rotationEffect(.degrees(-90))
@@ -69,7 +66,7 @@ struct WhoopStrainDetailView: View {
             }
             .padding(.bottom, NoopMetrics.tabBarClearance + 24)
         }
-        .background(StrandPalette.surfaceBase.ignoresSafeArea())
+        .background(WhoopIOSDesign.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(StrandPalette.surfaceBase, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)

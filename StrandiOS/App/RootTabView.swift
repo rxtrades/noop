@@ -129,9 +129,14 @@ struct RootTabView: View {
         // its dynamic interaction with scrolling content automatically; older supported releases use
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
-            tab(todayTabRoot, "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepView(), "Sleep", "bed.double", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            tab(todayTabRoot, whoopHomeEnabled ? "Home" : "Today", whoopHomeEnabled ? "house" : "square.grid.2x2",
+                path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
+            tab(TrendsView(), whoopHomeEnabled ? "Health" : "Trends",
+                whoopHomeEnabled ? "heart.text.square" : "chart.line.uptrend.xyaxis",
+                path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+            tab(SleepView(), whoopHomeEnabled ? "Community" : "Sleep",
+                whoopHomeEnabled ? "person.3" : "bed.double",
+                path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // K3: Coach promoted to a top-level tab (was behind the More list). The sparkles icon
             // matches the More-tab row and the macOS sidebar entry.
             // Conditional on the master switch. The tags stay LITERAL rather than being renumbered when
@@ -143,6 +148,7 @@ struct RootTabView: View {
             }
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
+        .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
         .tint(StrandPalette.accent)
         // Switching Coach off while STANDING on it leaves `selectedTab` pointing at a tag no tab claims
         // any more, which renders as an empty tab rather than as an error. Send that wearer to Today, and
@@ -274,13 +280,22 @@ struct RootTabView: View {
         // inside the Lift Log screen, because a workout outlives whichever screen you wandered to —
         // and because swiping the sheet away must minimise the session, not end it.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if liftSession.isActive {
-                LiftSessionBar()
-                    .padding(.horizontal, 14)
-                    // Clear the floating tab bar with the same constant every screen uses, or the
-                    // session bar sits on top of the tab labels.
-                    .padding(.bottom, NoopMetrics.tabBarClearance)
+            VStack(spacing: 0) {
+                if liftSession.isActive {
+                    LiftSessionBar()
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if whoopHomeEnabled, !liftSession.isActive {
+                    WhoopFloatingTabBar(
+                        selectedTab: $selectedTab,
+                        coachEnabled: coachEnabled,
+                        onReselect: reselectTab,
+                        onFAB: { showDevices = true }
+                    )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: liftSession.isActive)

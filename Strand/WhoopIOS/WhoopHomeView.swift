@@ -4,7 +4,7 @@ import StrandDesign
 import StrandAnalytics
 import WhoopStore
 
-/// WHOOP-inspired Today / Home: true-black canvas, three metric rings, dark cards.
+/// Whoople home — Mobbin WHOOP layout: black canvas, animated rings, monitor cards.
 struct WhoopHomeView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var model: AppModel
@@ -12,11 +12,14 @@ struct WhoopHomeView: View {
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
 
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.whoop.rawValue
+
     @State private var selectedDayOffset = 0
     @State private var displayDay: DailyMetric?
     @State private var restScore: Double?
     @State private var vitalsDay: DailyMetric?
     @State private var showSettings = false
+    @State private var cardsVisible = false
+    @State private var ringAnimationToken = 0
 
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
     private var effortGaugeMax: Double { effortScale == .whoop ? 21 : 100 }
@@ -35,13 +38,24 @@ struct WhoopHomeView: View {
         return f.string(from: day).uppercased()
     }
 
+    private var wearStreak: Int {
+        var streak = 0
+        let sorted = repo.days.sorted { $0.day > $1.day }
+        for d in sorted {
+            guard d.recovery != nil else { break }
+            streak += 1
+        }
+        return streak
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                VStack(alignment: .leading, spacing: 20) {
                     Color.clear.frame(height: 1).id(Self.topAnchorID)
                     WhoopHomeHeader(
                         dayLabel: dayHeaderLabel,
+                        streakDays: wearStreak,
                         onPreviousDay: { selectedDayOffset = min(selectedDayOffset + 1, maxDayOffset) },
                         onNextDay: selectedDayOffset > 0,
                         onNextDayTap: { selectedDayOffset = max(0, selectedDayOffset - 1) },
@@ -50,67 +64,60 @@ struct WhoopHomeView: View {
                         onProfileTap: { showSettings = true },
                         onDeviceTap: { router.openDevices() }
                     )
+                    .whoopCardAppear(index: 0, visible: cardsVisible)
+
                     metricRingsRow
+                        .whoopCardAppear(index: 1, visible: cardsVisible)
+
+                    insightCard
+                        .whoopCardAppear(index: 2, visible: cardsVisible)
+
+                    HStack(alignment: .top, spacing: 10) {
+                        healthMonitorCard
+                        stressMonitorCard
+                    }
+                    .whoopCardAppear(index: 3, visible: cardsVisible)
+
                     if selectedDayOffset == 0, displayDay?.recovery == nil {
                         calibrationCard
+                            .whoopCardAppear(index: 4, visible: cardsVisible)
                     }
-                    NavigationLink(value: TabRoute.stress) {
-                        WhoopCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                WhoopSectionHeader("Stress Monitor")
-                                Text("Tap to open stress trends and calibration.")
-                                    .font(StrandFont.subhead)
-                                    .foregroundStyle(StrandPalette.textSecondary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    NavigationLink(value: TabRoute.metric("recovery")) {
-                        WhoopCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                WhoopSectionHeader("Strain & Recovery")
-                                Text("Weekly trends and correlations.")
-                                    .font(StrandFont.subhead)
-                                    .foregroundStyle(StrandPalette.textSecondary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
+
                     NavigationLink { WhoopDashboardView() } label: {
-                        WhoopCard {
-                            WhoopSectionHeader("My Dashboard")
-                        }
+                        WhoopCard { WhoopSectionHeader("My Dashboard") }
                     }
                     .buttonStyle(.plain)
+                    .whoopCardAppear(index: 5, visible: cardsVisible)
+
                     NavigationLink(value: TabRoute.dataSources) {
-                        WhoopCard {
-                            WhoopSectionHeader("Data Sources", showsChevron: true)
-                        }
+                        WhoopCard { WhoopSectionHeader("Data Sources") }
                     }
                     .buttonStyle(.plain)
+                    .whoopCardAppear(index: 6, visible: cardsVisible)
                 }
                 .padding(.horizontal, NoopMetrics.screenHPadding)
                 .padding(.top, 8)
-                .padding(.bottom, NoopMetrics.tabBarClearance + 16)
+                .padding(.bottom, 110)
             }
-            .background(StrandPalette.surfaceBase.ignoresSafeArea())
-            .refreshable { await repo.refresh() }
-            .task(id: "\(repo.refreshSeq)-\(selectedDayOffset)") { await load() }
+            .background(WhoopIOSDesign.background.ignoresSafeArea())
+            .refreshable {
+                await repo.refresh()
+                ringAnimationToken += 1
+            }
+            .task(id: "\(repo.refreshSeq)-\(selectedDayOffset)") {
+                await load()
+                ringAnimationToken += 1
+                if !cardsVisible {
+                    withAnimation(WhoopIOSDesign.cardAppear) { cardsVisible = true }
+                }
+            }
             .onChange(of: scrollToTopSignal) { _, _ in
                 withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(StrandPalette.textSecondary)
-                    }
-                }
             }
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     SettingsView()
-                        .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                        .background(WhoopIOSDesign.background.ignoresSafeArea())
                         .toolbar {
                             ToolbarItem(placement: .topBarTrailing) {
                                 Button("Done") { showSettings = false }
@@ -124,73 +131,132 @@ struct WhoopHomeView: View {
 
     private static let topAnchorID = "whoopHomeTop"
 
-    private var maxDayOffset: Int {
-        min(30, max(0, repo.days.count - 1))
-    }
+    private var maxDayOffset: Int { min(30, max(0, repo.days.count - 1)) }
 
     private var metricRingsRow: some View {
-        HStack(alignment: .top, spacing: 8) {
-            NavigationLink {
-                sleepDestination
-            } label: {
-                sleepRingColumn
-            }
-            .buttonStyle(.plain)
-            NavigationLink {
-                recoveryDestination
-            } label: {
-                recoveryRingColumn
-            }
-            .buttonStyle(.plain)
-            NavigationLink {
-                strainDestination
-            } label: {
-                strainRingColumn
-            }
-            .buttonStyle(.plain)
+        HStack(alignment: .top, spacing: 4) {
+            NavigationLink { sleepDestination } label: { sleepRingColumn }.buttonStyle(.plain)
+            NavigationLink { recoveryDestination } label: { recoveryRingColumn }.buttonStyle(.plain)
+            NavigationLink { strainDestination } label: { strainRingColumn }.buttonStyle(.plain)
         }
     }
 
     private var sleepRingColumn: some View {
         let perf = restScore ?? displayDay.flatMap { AnalyticsEngine.Rest.composite(daily: $0) }
-        let frac = perf.map { $0 / 100 } ?? 0
-        return WhoopMetricRingColumn(
+        let has = perf != nil
+        return WhoopAnimatedMetricRingColumn(
             label: "Sleep",
-            fraction: frac,
+            fraction: has ? (perf! / 100) : 0,
             displayValue: perf ?? 0,
-            format: { perf != nil ? "\(Int($0.rounded()))" : "—" },
-            accent: WhoopIOSColors.sleepAccent
+            format: { has ? "\(Int($0.rounded()))" : "—" },
+            accent: WhoopIOSDesign.sleepBlue,
+            useStrainGradient: false,
+            animationToken: ringAnimationToken
         )
     }
 
     private var recoveryRingColumn: some View {
         let rec = displayDay?.recovery
-        let frac = (rec ?? 0) / 100
-        return WhoopMetricRingColumn(
+        let has = rec != nil
+        return WhoopAnimatedMetricRingColumn(
             label: "Recovery",
-            fraction: rec != nil ? frac : 0,
+            fraction: has ? (rec! / 100) : 0,
             displayValue: rec ?? 0,
-            format: { rec != nil ? "\(Int($0.rounded()))" : "—" },
-            accent: rec.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.textTertiary
+            format: { has ? "\(Int($0.rounded()))" : "—" },
+            accent: WhoopIOSDesign.recoveryAccent(score: rec),
+            useStrainGradient: false,
+            animationToken: ringAnimationToken
         )
     }
 
     private var strainRingColumn: some View {
         let strain = displayDay?.strain
+        let has = strain != nil
         let max = effortGaugeMax
-        let frac = strain.map { $0 / max } ?? 0
-        return WhoopMetricRingColumn(
+        return WhoopAnimatedMetricRingColumn(
             label: "Strain",
-            fraction: strain != nil ? frac : 0,
+            fraction: has ? (strain! / max) : 0,
             displayValue: strain ?? 0,
-            format: { strain != nil ? UnitFormatter.effortDisplay($0, scale: effortScale) : "—" },
-            accent: StrandPalette.effortColor
+            format: { has ? UnitFormatter.effortDisplay($0, scale: effortScale) : "—" },
+            accent: WhoopIOSDesign.strainBlue,
+            useStrainGradient: has,
+            animationToken: ringAnimationToken
         )
     }
 
-    @ViewBuilder private var sleepDestination: some View {
-        SleepView()
+    private var insightCard: some View {
+        WhoopCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(insightTitle)
+                    .font(StrandFont.headline)
+                    .foregroundStyle(.white)
+                Text(insightBody)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
+
+    private var insightTitle: String {
+        if let rec = displayDay?.recovery {
+            if rec >= 67 { return String(localized: "Strong recovery") }
+            if rec >= 34 { return String(localized: "Moderate recovery") }
+            return String(localized: "Recovery needs rest")
+        }
+        return String(localized: "Building your baseline")
+    }
+
+    private var insightBody: String {
+        if displayDay?.recovery != nil {
+            return String(localized: "Your body is ready to train within today's strain budget. Tap Recovery for HRV, RHR, and sleep performance.")
+        }
+        return String(localized: "Wear \(WhoopleBranding.displayName) to sleep for a few nights to unlock recovery, strain, and sleep scores.")
+    }
+
+    private var healthMonitorCard: some View {
+        NavigationLink(value: TabRoute.health) {
+            WhoopCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    WhoopSectionHeader("Health Monitor", showsChevron: true)
+                    Text("WITHIN RANGE")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1)
+                        .foregroundStyle(WhoopIOSDesign.recoveryGreen)
+                    Text("Vitals & trends")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var stressMonitorCard: some View {
+        NavigationLink(value: TabRoute.stress) {
+            WhoopCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    WhoopSectionHeader("Stress Monitor", showsChevron: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("MEDIUM")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(WhoopIOSDesign.recoveryGreen)
+                        Text("—")
+                            .font(StrandFont.title2)
+                            .foregroundStyle(.white)
+                    }
+                    Text("Open for today's curve")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder private var sleepDestination: some View { SleepView() }
 
     private var recoveryDestination: some View {
         WhoopRecoveryDetailView(
@@ -201,7 +267,7 @@ struct WhoopHomeView: View {
             sleepPerf: restScore ?? displayDay.flatMap { AnalyticsEngine.Rest.composite(daily: $0) },
             hrvBaseline: repo.chargeBaselines?.hrv.baseline,
             rhrBaseline: repo.chargeBaselines.map { Int($0.restingHR.baseline.rounded()) },
-            respBaseline: nil,
+            respBaseline: repo.chargeBaselines?.resp.baseline,
             sleepBaseline: nil
         )
     }
@@ -221,28 +287,22 @@ struct WhoopHomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Calibration")
                     .font(StrandFont.headline)
-                    .foregroundStyle(StrandPalette.textPrimary)
-                Text("Wear NOOP to sleep for a few nights to calibrate recovery, strain, and sleep scores.")
+                    .foregroundStyle(.white)
+                Text("Wear \(WhoopleBranding.displayName) to sleep for a few nights to calibrate recovery, strain, and sleep scores.")
                     .font(StrandFont.subhead)
-                    .foregroundStyle(StrandPalette.textSecondary)
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
                 PipBar(value: Double(min(4, repo.days.filter { $0.recovery != nil }.count)),
-                       range: 0...4, segments: 4, tint: StrandPalette.accent, height: 8)
+                       range: 0...4, segments: 4, tint: WhoopIOSDesign.strainBlue, height: 8)
             }
         }
     }
 
     private func load() async {
         displayDay = repo.days.first(where: { $0.day == selectedDayKey }) ?? (selectedDayOffset == 0 ? repo.today : nil)
-        if selectedDayOffset == 0 {
-            vitalsDay = Repository.lastVitalsDay(days: repo.days, todayKey: selectedDayKey)
-        } else {
-            vitalsDay = nil
-        }
-        if let day = displayDay {
-            restScore = AnalyticsEngine.Rest.composite(daily: day)
-        } else {
-            restScore = nil
-        }
+        vitalsDay = selectedDayOffset == 0
+            ? Repository.lastVitalsDay(days: repo.days, todayKey: selectedDayKey)
+            : nil
+        restScore = displayDay.flatMap { AnalyticsEngine.Rest.composite(daily: $0) }
     }
 }
 
