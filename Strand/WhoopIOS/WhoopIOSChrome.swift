@@ -67,13 +67,21 @@ struct WhoopHomeHeader: View {
     var onNextDayTap: () -> Void
     var batteryPct: Int?
     var connected: Bool
+    var onProfileTap: () -> Void = {}
+    var onDeviceTap: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 14) {
             HStack(alignment: .center) {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(StrandPalette.textSecondary)
+                Button(action: onProfileTap) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 22))
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Profile and settings")
                 Spacer(minLength: 0)
                 HStack(spacing: 0) {
                     Button(action: onPreviousDay) {
@@ -105,17 +113,24 @@ struct WhoopHomeHeader: View {
                         .fill(StrandPalette.surfaceRaised.opacity(0.85))
                 )
                 Spacer(minLength: 0)
-                HStack(spacing: 6) {
-                    if let batteryPct {
-                        Text("\(batteryPct)%")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .monospacedDigit()
+                Button(action: onDeviceTap) {
+                    HStack(spacing: 6) {
+                        if let batteryPct {
+                            Text("\(batteryPct)%")
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                                .monospacedDigit()
+                        }
+                        Image(systemName: connected ? "applewatch" : "applewatch.slash")
+                            .font(.system(size: 16))
+                            .foregroundStyle(connected ? StrandPalette.statusPositive : StrandPalette.textTertiary)
                     }
-                    Image(systemName: connected ? "applewatch" : "applewatch.slash")
-                        .font(.system(size: 16))
-                        .foregroundStyle(connected ? StrandPalette.statusPositive : StrandPalette.textTertiary)
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: 36)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(connected ? "Devices, connected" : "Devices, not connected")
             }
             Text("NOOP")
                 .font(.system(size: 22, weight: .bold, design: .default))

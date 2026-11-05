@@ -8,6 +8,7 @@ import WhoopStore
 struct WhoopHomeView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var router: NavRouter
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
 
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.whoop.rawValue
@@ -45,7 +46,9 @@ struct WhoopHomeView: View {
                         onNextDay: selectedDayOffset > 0,
                         onNextDayTap: { selectedDayOffset = max(0, selectedDayOffset - 1) },
                         batteryPct: model.live.batteryPct.map { Int($0.rounded()) },
-                        connected: model.live.connected
+                        connected: model.live.connected,
+                        onProfileTap: { showSettings = true },
+                        onDeviceTap: { router.openDevices() }
                     )
                     metricRingsRow
                     if selectedDayOffset == 0, displayDay?.recovery == nil {
