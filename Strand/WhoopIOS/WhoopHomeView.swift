@@ -666,7 +666,7 @@ struct WhoopHomeView: View {
             }
 
             ForEach(dashboardRows) { row in
-                NavigationLink(value: TabRoute.metric(row.metricKey)) {
+                NavigationLink(value: TabRoute.whoopTrend(row.metricKey)) {
                     WhoopDashboardMetricRow(
                         icon: row.icon,
                         title: row.title,

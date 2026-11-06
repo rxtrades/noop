@@ -648,6 +648,8 @@ enum DemoScreens {
         case "recoverydetail": return AnyView(WhoopRecoveryDetailDemoHost())
         case "straindetail": return AnyView(WhoopStrainDetailDemoHost())
         case "sleepdetail": return AnyView(WhoopSleepDetailDemoHost())
+        case "weeklytrends": return AnyView(WhoopWeeklyTrendsView())
+        case "trendview": return AnyView(NavigationStack { WhoopTrendView(metricKey: "hrv") })
         case "dashboard": return AnyView(WhoopDashboardView())
         case "coach": return AnyView(CoachView())
         default:         return nil

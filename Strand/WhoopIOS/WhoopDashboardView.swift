@@ -27,7 +27,7 @@ struct WhoopDashboardView: View {
                 .padding(.bottom, 4)
 
                 ForEach(rows) { row in
-                    NavigationLink(value: TabRoute.metric(row.key)) {
+                    NavigationLink(value: TabRoute.whoopTrend(row.key)) {
                         WhoopDashboardMetricRow(
                             icon: row.icon,
                             title: row.title,

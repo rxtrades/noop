@@ -35,6 +35,8 @@ enum TabRoute: Hashable {
     case health
     case hydration
     case coupled
+    /// Whoople Trend View for a metric catalog key (Phase 4).
+    case whoopTrend(String)
 }
 
 extension View {
@@ -71,6 +73,11 @@ extension View {
             case .health: HealthView()
             case .hydration: HydrationView()
             case .coupled: CoupledView()
+#if os(iOS)
+            case .whoopTrend(let key): WhoopTrendView(metricKey: key)
+#else
+            case .whoopTrend(_): HealthView()
+#endif
             }
         }
     }

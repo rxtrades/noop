@@ -137,9 +137,15 @@ struct RootTabView: View {
         TabView(selection: nativeTabSelection) {
             tab(todayTabRoot, whoopHomeEnabled ? "Home" : "Today", whoopHomeEnabled ? "house" : "square.grid.2x2",
                 path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(TrendsView(), whoopHomeEnabled ? "Health" : "Trends",
+            tab(
+                Group {
+                    if whoopHomeEnabled { WhoopWeeklyTrendsView() }
+                    else { TrendsView() }
+                },
+                whoopHomeEnabled ? "Health" : "Trends",
                 whoopHomeEnabled ? "heart.text.square" : "chart.line.uptrend.xyaxis",
-                path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+                path: $tabPaths[1], scrollSignal: scrollTop[1]
+            ).tag(1)
             tab(
                 Group {
                     if whoopHomeEnabled { WhoopCommunityView() }
