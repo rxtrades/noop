@@ -412,16 +412,25 @@ struct RootTabView: View {
     private func quickActionDestination(_ action: QuickAction) -> some View {
         switch action {
         case .menu:
-            QuickActionSheet { picked in
-                // Swap the menu for the chosen destination on the next runloop so the sheet
-                // re-presents cleanly (avoids dismiss/re-present races). Calm easing on re-present.
-                quickAction = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(Self.sheetEase) { quickAction = picked }
+            if whoopHomeEnabled {
+                WhoopPlusMenuSheet(
+                    onStartActivity: { swapQuickAction(.startActivity) },
+                    onAddActivity: { swapQuickAction(.addActivity) },
+                    onJournal: { swapQuickAction(.journal) },
+                    onLive: { swapQuickAction(.liveActivity) },
+                    onBreathwork: { swapQuickAction(.breathwork) }
+                )
+                .presentationDetents([.height(380)])
+                .presentationDragIndicator(.hidden)
+            } else {
+                QuickActionSheet { picked in
+                    // Swap the menu for the chosen destination on the next runloop so the sheet
+                    // re-presents cleanly (avoids dismiss/re-present races). Calm easing on re-present.
+                    swapQuickAction(picked)
                 }
+                .presentationDetents([.height(344)])
+                .presentationDragIndicator(.hidden)
             }
-            .presentationDetents([.height(344)])
-            .presentationDragIndicator(.hidden)
         case .live:
             quickScreen(LiveView())
         case .workout:
@@ -430,6 +439,27 @@ struct RootTabView: View {
             quickScreen(InsightsView())
         case .breathe:
             quickScreen(BreathingView())
+        case .startActivity:
+            WhoopActivityCoordinator(mode: .start)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        case .addActivity:
+            WhoopActivityCoordinator(mode: .add)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        case .breathwork:
+            quickScreen(WhoopBreathworkView())
+        case .liveActivity:
+            WhoopLiveActivityView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        }
+    }
+
+    private func swapQuickAction(_ picked: QuickAction) {
+        quickAction = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(Self.sheetEase) { quickAction = picked }
         }
     }
 
@@ -754,6 +784,7 @@ private struct MoreRow: View {
 /// route to existing screens. `Identifiable` so it drives `.sheet(item:)`.
 private enum QuickAction: Int, Identifiable {
     case menu, live, workout, journal, breathe
+    case startActivity, addActivity, breathwork, liveActivity
     var id: Int { rawValue }
 }
 

@@ -630,6 +630,35 @@ enum DemoScreens {
         case "whoopledevices": return AnyView(WhoopDevicesView())
         case "devicesettings": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
         case "pairing": return AnyView(WhoopPairingFlowView(onFinished: {}, onOpenClassicWizard: {}))
+        case "whoopleplus":
+            return AnyView(
+                ZStack(alignment: .bottom) {
+                    WhoopIOSDesign.bgBase.ignoresSafeArea()
+                    WhoopPlusMenuSheet(onStartActivity: {}, onAddActivity: {}, onJournal: {}, onLive: {}, onBreathwork: {})
+                        .frame(maxHeight: 380)
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "activitypicker":
+            return AnyView(WhoopActivityPickerView(title: "Start Activity", onPick: { _ in }).preferredColorScheme(.dark))
+        case "startactivity":
+            return AnyView(
+                WhoopStartActivitySheet(sport: "Running", onStart: { _ in }, onChangeSport: {})
+                    .background(WhoopIOSDesign.bgBase.ignoresSafeArea())
+                    .preferredColorScheme(.dark)
+            )
+        case "liveactivity":
+            return AnyView(WhoopLiveActivityView().preferredColorScheme(.dark))
+        case "activitydetail":
+            return AnyView(
+                NavigationStack {
+                    WhoopActivityDetailView(sport: "Running", strain: 12.4, avgHr: 148, peakHr: 172,
+                                           calories: 420, durationS: 2340, zoneMinutes: [8, 12, 15, 6, 2])
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "breathwork":
+            return AnyView(NavigationStack { WhoopBreathworkView() }.preferredColorScheme(.dark))
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())
