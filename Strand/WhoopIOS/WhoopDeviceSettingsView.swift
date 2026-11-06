@@ -3,7 +3,7 @@ import SwiftUI
 import StrandDesign
 import WhoopStore
 
-/// WHOOP-style Device Settings (Mobbin 119/120): Status / Advanced, battery, Broadcast HR.
+/// WHOOP-style Device Settings (Mobbin 119/120): Status / Advanced, battery, Broadcast HR, Pair/Unpair.
 struct WhoopDeviceSettingsView: View {
     var device: PairedDevice?
 
@@ -13,8 +13,17 @@ struct WhoopDeviceSettingsView: View {
 
     @AppStorage(HrBroadcaster.defaultsKey) private var phoneBroadcastHr = false
     @AppStorage(PuffinExperiment.broadcastHrKey) private var strapBroadcastHr = false
-    @State private var tab: Tab = .status
+    @State private var tab: Tab = {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("devicesettingsadvanced") || (args.contains("--whoople-device-tab") && args.contains("advanced")) {
+            return .advanced
+        }
+        return .status
+    }()
     @StateObject private var hrBroadcaster = HrBroadcaster()
+    @State private var showPairing = false
+    @State private var showClassicWizard = false
+    @State private var showUnpairConfirm = false
 
     enum Tab: String, CaseIterable, Identifiable {
         case status = "STATUS"
@@ -23,15 +32,22 @@ struct WhoopDeviceSettingsView: View {
     }
 
     private var batteryPct: Int? {
-        guard live.connected else { return live.batteryPct.map { Int($0.rounded()) } }
-        return live.batteryPct.map { Int($0.rounded()) }
+        live.batteryPct.map { Int($0.rounded()) }
     }
 
     private var deviceTitle: String {
-        if let device {
-            return device.displayName
-        }
-        return "\(WhoopleBranding.displayName) Strap"
+        let raw: String = {
+            if let device { return device.displayName }
+            if let name = model.deviceRegistry?.devices.first(where: { $0.status == .active })?.displayName {
+                return name
+            }
+            return "\(WhoopleBranding.displayName) Strap"
+        }()
+        return WhoopleBranding.sanitizeDisplayName(raw).uppercased()
+    }
+
+    private var deviceIdShort: String {
+        device?.id ?? model.deviceRegistry?.devices.first(where: { $0.status == .active })?.id ?? "—"
     }
 
     var body: some View {
@@ -47,7 +63,7 @@ struct WhoopDeviceSettingsView: View {
             }
             .padding(.horizontal, WhoopIOSDesign.pageMargin)
             .padding(.top, 8)
-            .padding(.bottom, 40)
+            .padding(.bottom, 48)
         }
         .whoopPageBackground()
         .navigationBarTitleDisplayMode(.inline)
@@ -55,7 +71,7 @@ struct WhoopDeviceSettingsView: View {
             ToolbarItem(placement: .principal) {
                 Text("DEVICE SETTINGS")
                     .font(WhoopType.labelCaps(13))
-                    .tracking(1.0)
+                    .tracking(1.2)
                     .foregroundStyle(.white)
             }
             ToolbarItem(placement: .cancellationAction) {
@@ -64,6 +80,10 @@ struct WhoopDeviceSettingsView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.white)
             }
         }
         .toolbarBackground(WhoopIOSDesign.bgBase.opacity(0.95), for: .navigationBar)
@@ -74,6 +94,31 @@ struct WhoopDeviceSettingsView: View {
             if phoneBroadcastHr { hrBroadcaster.start() }
         }
         .onDisappear { hrBroadcaster.stop() }
+        .fullScreenCover(isPresented: $showPairing) {
+            WhoopPairingFlowView(
+                onFinished: { showPairing = false },
+                onOpenClassicWizard: {
+                    showPairing = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showClassicWizard = true
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showClassicWizard) {
+            AddDeviceWizard(live: live, onClose: { showClassicWizard = false })
+                .preferredColorScheme(.dark)
+        }
+        .confirmationDialog("Unpair this device?", isPresented: $showUnpairConfirm, titleVisibility: .visible) {
+            Button("Unpair", role: .destructive) {
+                if let id = device?.id ?? model.deviceRegistry?.devices.first(where: { $0.status == .active })?.id {
+                    model.deviceRegistry?.archive(id)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the Bluetooth connection for this strap.")
+        }
     }
 
     private var headerStats: some View {
@@ -81,11 +126,11 @@ struct WhoopDeviceSettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(live.connected ? "CONNECTED TO" : "NOT CONNECTED")
                     .font(WhoopType.caption(10))
-                    .tracking(1)
+                    .tracking(1.1)
                     .foregroundStyle(live.connected ? WhoopIOSDesign.recoveryGreen : WhoopIOSDesign.recoveryYellow)
                 HStack(spacing: 6) {
                     Text(deviceTitle)
-                        .font(WhoopType.cardTitle(16))
+                        .font(WhoopType.cardTitle(15))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                     Image(systemName: "pencil")
@@ -97,14 +142,14 @@ struct WhoopDeviceSettingsView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text("LAST SYNC")
                     .font(WhoopType.caption(10))
-                    .tracking(1)
+                    .tracking(1.1)
                     .foregroundStyle(WhoopIOSDesign.textSecondary)
                 HStack(spacing: 4) {
-                    Image(systemName: live.connected ? "checkmark.icloud.fill" : "icloud.slash")
-                        .foregroundStyle(live.connected ? WhoopIOSDesign.recoveryGreen : WhoopIOSDesign.textTertiary)
                     Text(lastSyncLabel)
                         .font(WhoopType.cardTitle(15))
                         .foregroundStyle(.white)
+                    Image(systemName: live.connected ? "checkmark.icloud.fill" : "icloud.slash")
+                        .foregroundStyle(live.connected ? WhoopIOSDesign.recoveryGreen : WhoopIOSDesign.textTertiary)
                 }
             }
         }
@@ -117,13 +162,13 @@ struct WhoopDeviceSettingsView: View {
     }
 
     private var tabPicker: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 28) {
             ForEach(Tab.allCases) { t in
                 Button { tab = t } label: {
                     VStack(spacing: 8) {
                         Text(t.rawValue)
                             .font(WhoopType.labelCaps(12))
-                            .tracking(1)
+                            .tracking(1.2)
                             .foregroundStyle(tab == t ? .white : WhoopIOSDesign.textSecondary)
                         Rectangle()
                             .fill(tab == t ? Color.white : Color.clear)
@@ -145,67 +190,63 @@ struct WhoopDeviceSettingsView: View {
             .padding(.vertical, 8)
 
             broadcastCard
-
-            if let pct = batteryPct, pct <= 15 {
-                WhoopStatusBanner(
-                    icon: "battery.25",
-                    tint: WhoopIOSDesign.recoveryRed,
-                    title: String(localized: "Charge your strap"),
-                    detail: String(localized: "\(pct)% — plug in before bed to keep overnight recovery.")
-                )
-            }
         }
     }
 
     private var strapHero: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(WhoopIOSDesign.card)
-                .frame(width: 150, height: 150)
-            VStack(spacing: 10) {
-                // Abstract strap glyph (no WHOOP product render)
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(WhoopIOSDesign.surfaceList)
+                .frame(width: 168, height: 168)
+            VStack(spacing: 12) {
                 Capsule(style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "#2A2F36"), Color(hex: "#15181C")],
+                            colors: [Color(hex: "#2E333A"), Color(hex: "#14171B")],
                             startPoint: .top, endPoint: .bottom
                         )
                     )
-                    .frame(width: 88, height: 28)
+                    .frame(width: 108, height: 34)
                     .overlay(
-                        Text("W")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.85))
+                        HStack(spacing: 6) {
+                            Capsule().fill(Color.white.opacity(0.12)).frame(width: 22, height: 10)
+                            Text("W")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
                     )
+                    .shadow(color: .black.opacity(0.45), radius: 8, y: 4)
                 Text(WhoopleBranding.displayName.uppercased())
                     .font(WhoopType.caption(10))
-                    .tracking(1.5)
+                    .tracking(1.6)
                     .foregroundStyle(WhoopIOSDesign.textSecondary)
+            }
+            if let pct = batteryPct, pct <= 20 {
+                Text("CHARGE YOUR STRAP")
+                    .font(WhoopType.labelCaps(9))
+                    .tracking(0.5)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(WhoopIOSDesign.recoveryRed))
+                    .offset(x: 8, y: -6)
             }
         }
     }
 
     private var batteryBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 Text(batteryPct.map { "\($0)%" } ?? "—")
-                    .font(WhoopType.metric(40))
-                    .foregroundStyle(batteryTint)
+                    .font(WhoopType.metric(44))
+                    .foregroundStyle(.white)
                     .monospacedDigit()
                 batteryMeter
             }
-            Text(deviceModelLabel)
+            Text(deviceModelLabel.uppercased())
                 .font(WhoopType.caption(11))
+                .tracking(0.8)
                 .foregroundStyle(WhoopIOSDesign.textSecondary)
-            if let pct = batteryPct, pct <= 20 {
-                Text("CHARGE YOUR STRAP")
-                    .font(WhoopType.labelCaps(11))
-                    .tracking(0.8)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(WhoopIOSDesign.recoveryRed))
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -215,9 +256,9 @@ struct WhoopDeviceSettingsView: View {
         return ZStack(alignment: .bottom) {
             Capsule().stroke(WhoopIOSDesign.ringTrack, lineWidth: 1.5)
             Capsule().fill(batteryTint)
-                .frame(height: 56 * max(pct, 0.04))
+                .frame(height: 58 * max(pct, 0.04))
         }
-        .frame(width: 14, height: 56)
+        .frame(width: 14, height: 58)
     }
 
     private var batteryTint: Color {
@@ -228,16 +269,14 @@ struct WhoopDeviceSettingsView: View {
     }
 
     private var deviceModelLabel: String {
-        device?.kindLabel ?? "\(WhoopleBranding.displayName) strap"
+        device?.displayName ?? "\(WhoopleBranding.displayName) strap"
     }
 
     private var broadcastCard: some View {
         HStack(spacing: 14) {
             ZStack {
-                Circle().fill(Color.white)
-                    .frame(width: 36, height: 36)
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(.black)
+                Circle().fill(Color.white).frame(width: 36, height: 36)
+                Image(systemName: "heart.fill").foregroundStyle(.black)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text("BROADCAST HEART RATE")
@@ -263,22 +302,39 @@ struct WhoopDeviceSettingsView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
-                .fill(WhoopIOSDesign.card)
+                .fill(WhoopIOSDesign.surfaceList)
         )
     }
 
     private var advancedContent: some View {
-        VStack(spacing: 10) {
-            advancedRow("Device ID", device?.id ?? "—")
-            advancedRow("Firmware", live.strapFirmware ?? "—")
-            advancedRow("Connection", live.connected ? "Connected" : "Disconnected")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 28) {
+                infoColumn(icon: "applewatch", title: "DEVICE ID", value: WhoopleBranding.sanitizeDisplayName(deviceIdShort))
+                infoColumn(icon: "memorychip", title: "FIRMWARE", value: live.strapFirmware ?? "—")
+            }
+            .padding(.top, 4)
+
+            actionCard(icon: "plus.circle", title: "PAIR A DEVICE",
+                       caption: "Pair a strap to Whoople. This will replace any existing pairing.") {
+                showPairing = true
+            }
+            actionCard(icon: "minus.circle", title: "UNPAIR DEVICE",
+                       caption: "Unpair your strap from Whoople. This will remove the Bluetooth connection.") {
+                showUnpairConfirm = true
+            }
+            actionCard(icon: "memorychip", title: "FIRMWARE CHECK",
+                       caption: "Check and install the latest strap firmware when available.") {
+                // No OTA in Whoople yet — surface status only.
+            }
+
             Toggle(isOn: $strapBroadcastHr) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Strap Broadcast HR")
-                        .font(WhoopType.cardTitle(15))
+                    Text("STRAP BROADCAST HR")
+                        .font(WhoopType.rowCaps(12))
+                        .tracking(0.7)
                         .foregroundStyle(.white)
-                    Text("Experimental — WHOOP 5/MG family direct broadcast")
-                        .font(WhoopType.caption())
+                    Text("Experimental direct broadcast")
+                        .font(WhoopType.caption(11))
                         .foregroundStyle(WhoopIOSDesign.textSecondary)
                 }
             }
@@ -286,7 +342,7 @@ struct WhoopDeviceSettingsView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
-                    .fill(WhoopIOSDesign.card)
+                    .fill(WhoopIOSDesign.surfaceList)
             )
             .onChange(of: strapBroadcastHr) { _, on in
                 model.ble.setBroadcastHr(on)
@@ -294,30 +350,50 @@ struct WhoopDeviceSettingsView: View {
         }
     }
 
-    private func advancedRow(_ title: String, _ value: String) -> some View {
-        HStack {
+    private func infoColumn(icon: String, title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(.white)
             Text(title)
-                .font(WhoopType.body(15))
-                .foregroundStyle(WhoopIOSDesign.textBody)
-            Spacer()
+                .font(WhoopType.caption(10))
+                .tracking(1)
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
             Text(value)
                 .font(WhoopType.cardTitle(15))
                 .foregroundStyle(.white)
-                .lineLimit(1)
+                .lineLimit(2)
                 .minimumScaleFactor(0.7)
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
-                .fill(WhoopIOSDesign.card)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
-}
 
-private extension PairedDevice {
-    var kindLabel: String {
-        // Best-effort display without WHOOP wordmark as brand — model name OK when it's hardware.
-        displayName
+    private func actionCard(icon: String, title: String, caption: String, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundStyle(.white)
+                        .frame(width: 26)
+                    Text(title)
+                        .font(WhoopType.rowCaps(13))
+                        .tracking(0.8)
+                        .foregroundStyle(.white)
+                    Spacer()
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                        .fill(WhoopIOSDesign.surfaceList)
+                )
+            }
+            .buttonStyle(.plain)
+            Text(caption)
+                .font(WhoopType.caption(12))
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
+                .padding(.horizontal, 4)
+        }
     }
 }
 

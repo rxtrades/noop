@@ -210,17 +210,11 @@ struct WhoopHomeView: View {
                 }
                 #endif
             }
-            .sheet(isPresented: $showSettings) {
+                        .sheet(isPresented: $showSettings) {
                 NavigationStack {
-                    SettingsView()
-                        .whoopPageBackground()
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("Done") { showSettings = false }
-                                    .foregroundStyle(StrandPalette.accent)
-                            }
-                        }
+                    WhoopSettingsHubView(showsClose: true, onClose: { showSettings = false })
                 }
+                .preferredColorScheme(.dark)
             }
         }
     }

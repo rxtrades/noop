@@ -21,13 +21,17 @@ struct WhoopDevicesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Devices")
-                        .font(WhoopType.title(28))
+                    Text("DEVICES")
+                        .font(WhoopType.labelCaps(13))
+                        .tracking(1.4)
                         .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
 
-                    Text("Pair a strap, check battery, and broadcast heart rate.")
-                        .font(WhoopType.body(15))
-                        .foregroundStyle(WhoopIOSDesign.textBody)
+                    Text("Manage paired straps and open Device Settings.")
+                        .font(WhoopType.body(14))
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
 
                     if devices.isEmpty {
                         emptyCard
@@ -43,7 +47,7 @@ struct WhoopDevicesView: View {
                     Button { showPairing = true } label: {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                            Text("ADD A DEVICE")
+                            Text("PAIR YOUR WHOOPLE")
                                 .font(WhoopType.labelCaps(13))
                                 .tracking(1)
                         }
@@ -69,9 +73,12 @@ struct WhoopDevicesView: View {
             }
             .whoopPageBackground()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(WhoopIOSDesign.strainBlue)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
                 }
             }
             .toolbarBackground(WhoopIOSDesign.bgBase.opacity(0.95), for: .navigationBar)
@@ -104,7 +111,7 @@ struct WhoopDevicesView: View {
     private var emptyCard: some View {
         WhoopCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text("No strap paired")
+                Text("No device paired")
                     .font(WhoopType.cardTitle())
                     .foregroundStyle(.white)
                 Text("Add \(WhoopleBranding.displayName) or another band to unlock recovery, strain, and sleep.")
@@ -132,7 +139,7 @@ struct WhoopDevicesView: View {
                         .offset(x: 8, y: 8)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(device.displayName)
+                    Text(WhoopleBranding.sanitizeDisplayName(device.displayName))
                         .font(WhoopType.cardTitle(16))
                         .foregroundStyle(.white)
                         .lineLimit(1)

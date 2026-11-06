@@ -629,6 +629,7 @@ enum DemoScreens {
         case "devices":  return AnyView(DevicesView())
         case "whoopledevices": return AnyView(WhoopDevicesView())
         case "devicesettings": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
+        case "devicesettingsadvanced": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
         case "pairing": return AnyView(WhoopPairingFlowView(onFinished: {}, onOpenClassicWizard: {}))
         case "whoopleplus":
             return AnyView(
@@ -671,6 +672,14 @@ enum DemoScreens {
             )
         case "journalcustomize":
             return AnyView(WhoopJournalCustomizeDemoHost())
+        case "whooplesettings":
+            return AnyView(NavigationStack { WhoopSettingsHubView() }.preferredColorScheme(.dark))
+        case "whoopprofile":
+            return AnyView(NavigationStack { WhoopProfileView() }.preferredColorScheme(.dark))
+        case "whoopappsettings":
+            return AnyView(NavigationStack { WhoopAppSettingsView() }.preferredColorScheme(.dark))
+        case "whoopcoachkey":
+            return AnyView(NavigationStack { WhoopCoachAPIKeySettingsView() }.preferredColorScheme(.dark))
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())

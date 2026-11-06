@@ -363,7 +363,8 @@ struct RootTabView: View {
                 case .labBook: LabBookView()
                 case .fusedRecord: FusedRecordHost()
                 case .rhythm: RhythmHost(onClose: { routedPillar = nil })
-                case .devices: DevicesView()
+                case .devices:
+                    if whoopHomeEnabled { WhoopDevicesView() } else { DevicesView() }
                 // .trends is never presented as a pillar sheet on iPhone (it's a primary tab — the
                 // requestedDestination handler switches `selectedTab` instead), but the switch must stay
                 // exhaustive. Fall back to Trends inside the sheet host if it ever arrives here.
@@ -548,6 +549,10 @@ struct RootTabView: View {
     // rows in a single grouped NoopCard with hairline dividers — the same row idiom Settings/Health use.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         NavigationStack(path: path) {
+            Group {
+              if whoopHomeEnabled {
+                WhoopSettingsHubView()
+              } else {
             ScreenScaffold(title: "More", subtitle: "Everything else, one tap away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
@@ -606,6 +611,8 @@ struct RootTabView: View {
                     MoreRow("Settings", "gearshape.fill", .settings)
                 }
             }
+              } // end classic more
+            } // end Group
             // The rows push MoreDestination VALUES so a re-tap of the More tab can pop them off the
             // bound path (#135/#198). Each destination keeps the per-screen wrapper the rows used to
             // apply inline (surfaceBase background, inline title bar, hidden bar background):
@@ -695,6 +702,17 @@ struct RootTabView: View {
 /// (#198): a closure-destination push would bypass the path and be un-poppable on tab re-tap. The
 /// per-screen chrome the old inline links applied lives at the single `navigationDestination(for:)`
 /// registration in `moreTab`.
+private struct MoreSettingsDestination: View {
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    var body: some View {
+        if whoopHomeEnabled {
+            WhoopSettingsHubView()
+        } else {
+            SettingsView()
+        }
+    }
+}
+
 private enum MoreDestination: Hashable {
     case insightsHub, intelligence, coach, insights, explore, compare
     case live, workouts, liftLog, health, labBook, stress, breathe, intervals, rhythm
@@ -730,7 +748,7 @@ private enum MoreDestination: Hashable {
         case .testCentre:      TestCentreView()
         case .siriShortcuts:   SiriShortcutsSettingsView()
         case .powerSaving:     PowerSavingView()
-        case .settings:        SettingsView()
+        case .settings:        MoreSettingsDestination()
         }
     }
 }
