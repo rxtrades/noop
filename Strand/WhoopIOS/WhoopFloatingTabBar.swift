@@ -2,22 +2,21 @@
 import SwiftUI
 import StrandDesign
 
-/// WHOOP-style floating pill tab bar + glowing W FAB (visual chrome over the system TabView).
+/// WHOOP-style floating pill: Title Case 10pt, selected rounded-rect pill, glowing W coach button.
 struct WhoopFloatingTabBar: View {
     @Binding var selectedTab: Int
-    var coachEnabled: Bool // reserved for future Coach tab visibility
+    var coachEnabled: Bool
     var onReselect: (Int) -> Void
     var onFAB: () -> Void
 
     private struct Item: Identifiable {
         let id: Int
         let tag: Int
-        let title: LocalizedStringKey
+        let title: String
         let icon: String
     }
 
     private var items: [Item] {
-        // WHOOP four-up: Home · Health · Community · More (Coach stays under More, not in the pill).
         [
             Item(id: 0, tag: 0, title: "Home", icon: "house"),
             Item(id: 1, tag: 1, title: "Health", icon: "heart.text.square"),
@@ -30,23 +29,23 @@ struct WhoopFloatingTabBar: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            HStack(spacing: 0) {
+            HStack(spacing: 2) {
                 ForEach(items) { item in
                     tabButton(item)
                 }
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 8)
             .padding(.vertical, 8)
             .background {
                 Capsule(style: .continuous)
                     .fill(.ultraThinMaterial)
-                    .background(Capsule(style: .continuous).fill(WhoopIOSDesign.card.opacity(0.92)))
-                    .overlay(Capsule(style: .continuous).stroke(WhoopIOSDesign.cardBorder, lineWidth: 0.5))
+                    .background(Capsule(style: .continuous).fill(WhoopIOSDesign.tabBarFill.opacity(0.92)))
+                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.06), lineWidth: 0.5))
             }
             fabButton
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        .padding(.bottom, 8)
         .onAppear {
             guard !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
             withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
@@ -63,20 +62,25 @@ struct WhoopFloatingTabBar: View {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { selectedTab = item.tag }
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 18, weight: .regular))
+                    .font(.system(size: 17, weight: .regular))
                     .symbolVariant(selected ? .fill : .none)
-                    .scaleEffect(selected ? 1.06 : 1)
                 Text(item.title)
-                    .font(.system(size: 10, weight: selected ? .bold : .semibold))
-                    .textCase(.uppercase)
-                    .tracking(0.3)
+                    .font(WhoopType.tab())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(selected ? Color.white : WhoopIOSDesign.textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.12))
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -95,21 +99,21 @@ struct WhoopFloatingTabBar: View {
                                 .clear
                             ],
                             center: .center,
-                            startRadius: 8,
+                            startRadius: 6,
                             endRadius: fabPulse ? 34 : 26
                         )
                     )
                     .frame(width: 56, height: 56)
-                    .opacity(fabPulse ? 0.95 : 0.65)
+                    .opacity(fabPulse ? 1 : 0.7)
                 Circle()
-                    .fill(WhoopIOSDesign.cardElevated)
+                    .fill(WhoopIOSDesign.cardRaised)
                     .frame(width: 48, height: 48)
-                    .overlay(Circle().stroke(WhoopIOSDesign.cardBorder, lineWidth: 0.5))
+                    .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 0.5))
                 WhoopleMark(size: 48)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Devices and quick actions")
+        .accessibilityLabel("Coach and devices")
     }
 }
 

@@ -95,11 +95,11 @@ struct WhoopHomeView: View {
                     .buttonStyle(.plain)
                     .whoopCardAppear(index: 6, visible: cardsVisible)
                 }
-                .padding(.horizontal, NoopMetrics.screenHPadding)
+                .padding(.horizontal, WhoopIOSDesign.pageMargin)
                 .padding(.top, 8)
                 .padding(.bottom, 110)
             }
-            .background(WhoopIOSDesign.background.ignoresSafeArea())
+            .whoopPageBackground()
             .refreshable {
                 await repo.refresh()
                 ringAnimationToken += 1
@@ -117,7 +117,7 @@ struct WhoopHomeView: View {
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     SettingsView()
-                        .background(WhoopIOSDesign.background.ignoresSafeArea())
+                        .whoopPageBackground()
                         .toolbar {
                             ToolbarItem(placement: .topBarTrailing) {
                                 Button("Done") { showSettings = false }
@@ -134,7 +134,7 @@ struct WhoopHomeView: View {
     private var maxDayOffset: Int { min(30, max(0, repo.days.count - 1)) }
 
     private var metricRingsRow: some View {
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: WhoopIOSDesign.homeRingGap) {
             NavigationLink { sleepDestination } label: { sleepRingColumn }.buttonStyle(.plain)
             NavigationLink { recoveryDestination } label: { recoveryRingColumn }.buttonStyle(.plain)
             NavigationLink { strainDestination } label: { strainRingColumn }.buttonStyle(.plain)
@@ -151,7 +151,8 @@ struct WhoopHomeView: View {
             format: { has ? "\(Int($0.rounded()))" : "—" },
             accent: WhoopIOSDesign.sleepBlue,
             useStrainGradient: false,
-            animationToken: ringAnimationToken
+            animationToken: ringAnimationToken,
+            valueSuffix: has ? "%" : nil
         )
     }
 
@@ -165,7 +166,8 @@ struct WhoopHomeView: View {
             format: { has ? "\(Int($0.rounded()))" : "—" },
             accent: WhoopIOSDesign.recoveryAccent(score: rec),
             useStrainGradient: false,
-            animationToken: ringAnimationToken
+            animationToken: ringAnimationToken,
+            valueSuffix: has ? "%" : nil
         )
     }
 
@@ -185,7 +187,7 @@ struct WhoopHomeView: View {
     }
 
     private var insightCard: some View {
-        WhoopCard {
+        WhoopCard(raised: true) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(insightTitle)
                     .font(StrandFont.headline)

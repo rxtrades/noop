@@ -21,7 +21,7 @@ struct WhoopCommunityView: View {
                                 LinearGradient(
                                     colors: [
                                         Color(hex: "#3D4A55"),
-                                        Color(hex: "#1F2427")
+                                        WhoopIOSDesign.card
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -41,7 +41,7 @@ struct WhoopCommunityView: View {
 
                     Text("Invite friends and family to share Recovery, Strain, and Sleep — coming soon to \(WhoopleBranding.displayName).")
                         .font(.system(size: 15))
-                        .foregroundStyle(Color(hex: "#8A9399"))
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
 
@@ -69,10 +69,10 @@ struct WhoopCommunityView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color(hex: "#2B2F32"), Color(hex: "#1F2427")],
+                                colors: [WhoopIOSDesign.cardRaised, WhoopIOSDesign.card],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -84,17 +84,17 @@ struct WhoopCommunityView: View {
                 communityRow(icon: "trophy", title: "Team Leaderboards",
                              subtitle: "Recovery · Strain · Sleep rankings")
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, WhoopIOSDesign.pageMargin)
             .padding(.bottom, 120)
         }
-        .background(Color.black.ignoresSafeArea())
+        .whoopPageBackground()
     }
 
     private func communityRow(icon: String, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 18))
-                .foregroundStyle(Color(hex: "#8A9399"))
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -102,18 +102,18 @@ struct WhoopCommunityView: View {
                     .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "#8A9399"))
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: "#5E676D"))
+                .foregroundStyle(WhoopIOSDesign.textTertiary)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, WhoopIOSDesign.pageMargin)
         .padding(.vertical, 16)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(hex: "#1F2427"))
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.card)
         )
     }
 }

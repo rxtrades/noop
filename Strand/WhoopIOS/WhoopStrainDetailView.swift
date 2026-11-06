@@ -66,7 +66,7 @@ struct WhoopStrainDetailView: View {
             }
             .padding(.bottom, NoopMetrics.tabBarClearance + 24)
         }
-        .background(WhoopIOSDesign.background.ignoresSafeArea())
+        .whoopPageBackground()
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(StrandPalette.surfaceBase, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)

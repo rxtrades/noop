@@ -48,7 +48,7 @@ struct WhoopDashboardView: View {
             .padding(.top, 12)
             .padding(.bottom, NoopMetrics.tabBarClearance + 24)
         }
-        .background(WhoopIOSDesign.background.ignoresSafeArea())
+        .whoopPageBackground()
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
     }

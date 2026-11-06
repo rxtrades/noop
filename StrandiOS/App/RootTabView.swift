@@ -480,7 +480,10 @@ struct RootTabView: View {
         // TabRoute values, registered here ONCE per stack (a double registration double-pushes, #38).
         NavigationStack(path: path) {
             view
-                .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
+                .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
                 .toolbarBackground(whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase, for: .navigationBar)
@@ -567,7 +570,10 @@ struct RootTabView: View {
             // identical at rest — the destination's own surfaceBase background shows through the bar.
             .navigationDestination(for: MoreDestination.self) { route in
                 route.destination
-                    .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
+                    .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(WhoopIOSDesign.background, for: .navigationBar)
                     .toolbarBackground(whoopHomeEnabled ? .visible : .hidden, for: .navigationBar)
@@ -575,7 +581,10 @@ struct RootTabView: View {
                     .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
             }
             .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
-            .background((whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase).ignoresSafeArea())
+            .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)

@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-/// WHOOP-style ring: thick track, spring fill, optional strain gradient, count-up centre value.
+/// Compatibility wrapper — prefer `WhoopMetricRing` / `WhoopMetricRingColumn`.
 struct WhoopAnimatedMetricRing: View {
     var fraction: Double
     var displayValue: Double
@@ -11,12 +11,9 @@ struct WhoopAnimatedMetricRing: View {
     var useStrainGradient: Bool
     var diameter: CGFloat
     var lineWidth: CGFloat
-    /// Bump to re-run the fill animation after refresh.
     var animationToken: Int
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var animatedFraction: Double = 0
-    @State private var shownValue: Double = 0
+    var valueSuffix: String? = nil
+    var showsStartTick: Bool = false
 
     init(
         fraction: Double,
@@ -24,70 +21,40 @@ struct WhoopAnimatedMetricRing: View {
         format: @escaping (Double) -> String,
         accent: Color,
         useStrainGradient: Bool = false,
-        diameter: CGFloat = 104,
-        lineWidth: CGFloat = 9,
-        animationToken: Int = 0
+        diameter: CGFloat = WhoopIOSDesign.homeRingDiameter,
+        lineWidth: CGFloat = WhoopIOSDesign.homeRingLineWidth,
+        animationToken: Int = 0,
+        valueSuffix: String? = nil,
+        showsStartTick: Bool = false
     ) {
         self.fraction = fraction
         self.displayValue = displayValue
         self.format = format
-        self.accent = accent
+        self.accent = useStrainGradient ? WhoopIOSDesign.strainBlue : accent
         self.useStrainGradient = useStrainGradient
         self.diameter = diameter
         self.lineWidth = lineWidth
         self.animationToken = animationToken
+        self.valueSuffix = valueSuffix
+        self.showsStartTick = showsStartTick
     }
-
-    private var targetFraction: Double { min(max(fraction, 0), 1) }
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(WhoopIOSDesign.cardElevated.opacity(0.9),
-                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            ringArc
-            Text(format(shownValue))
-                .font(GlowRing.centerFont(diameter: diameter))
-                .foregroundStyle(StrandPalette.textPrimary)
-                .monospacedDigit()
-                .minimumScaleFactor(0.45)
-                .lineLimit(1)
-                .contentTransition(.numericText())
-        }
-        .frame(width: diameter, height: diameter)
-        .onAppear { animateToTarget() }
-        .onChange(of: animationToken) { _, _ in animateToTarget() }
-        .onChange(of: targetFraction) { _, _ in animateToTarget() }
-    }
-
-    @ViewBuilder private var ringArc: some View {
-        let trim = max(0.001, animatedFraction)
-        if useStrainGradient {
-            Circle()
-                .trim(from: 0, to: trim)
-                .stroke(WhoopIOSDesign.strainGradient(),
-                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        } else {
-            Circle()
-                .trim(from: 0, to: trim)
-                .stroke(accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-    }
-
-    private func animateToTarget() {
-        if reduceMotion {
-            animatedFraction = targetFraction
-            shownValue = displayValue
-            return
-        }
-        animatedFraction = 0
-        shownValue = 0
-        withAnimation(WhoopIOSDesign.ringSpring) {
-            animatedFraction = targetFraction
-            shownValue = displayValue
-        }
+        let size: WhoopMetricRing.Size = {
+            if abs(diameter - WhoopIOSDesign.detailRingDiameter) < 2 { return .detail }
+            if abs(diameter - WhoopIOSDesign.miniRingDiameter) < 2 { return .mini }
+            return .home
+        }()
+        WhoopMetricRing(
+            fraction: fraction,
+            displayValue: displayValue,
+            format: format,
+            accent: accent,
+            size: size,
+            valueSuffix: valueSuffix,
+            showsStartTick: showsStartTick || useStrainGradient,
+            animationToken: animationToken
+        )
     }
 }
 
@@ -99,29 +66,19 @@ struct WhoopAnimatedMetricRingColumn: View {
     var accent: Color
     var useStrainGradient: Bool
     var animationToken: Int
+    var valueSuffix: String? = nil
 
     var body: some View {
-        VStack(spacing: 10) {
-            WhoopAnimatedMetricRing(
-                fraction: fraction,
-                displayValue: displayValue,
-                format: format,
-                accent: accent,
-                useStrainGradient: useStrainGradient,
-                animationToken: animationToken
-            )
-            HStack(spacing: 4) {
-                Text(label)
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundStyle(WhoopIOSDesign.textSecondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(WhoopIOSDesign.textSecondary.opacity(0.7))
-            }
-        }
-        .frame(maxWidth: .infinity)
+        WhoopMetricRingColumn(
+            label: label,
+            fraction: fraction,
+            displayValue: displayValue,
+            format: format,
+            accent: useStrainGradient ? WhoopIOSDesign.strainBlue : accent,
+            valueSuffix: valueSuffix,
+            showsStartTick: useStrainGradient,
+            animationToken: animationToken
+        )
     }
 }
 
