@@ -223,17 +223,20 @@ struct WhoopDeviceSettingsView: View {
 
     private var statusContent: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .center, spacing: 14) {
+            // Large WHOOP-style band hero fills the top (Mobbin 119 / d035bbaf).
+            HStack(alignment: .center, spacing: 12) {
                 ZStack(alignment: .topTrailing) {
                     strapHero
                     if packAttached, let pp = packPct {
                         powerPackFloatingBadge(pp)
-                            .offset(x: 10, y: 18)
+                            .offset(x: 8, y: 14)
                     }
                 }
                 batteryBlock
+                    .frame(maxWidth: 120, alignment: .leading)
             }
-            .padding(.vertical, 8)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
 
             if packAttached {
                 powerPackCard
@@ -278,7 +281,8 @@ struct WhoopDeviceSettingsView: View {
                 charging: isCharging,
                 packAttached: packAttached,
                 batteryFraction: Double(batteryPct ?? 66) / 100.0,
-                reduceMotion: reduceMotion
+                reduceMotion: reduceMotion,
+                size: 248
             )
             if isCharging {
                 chargingBadge
@@ -321,7 +325,7 @@ struct WhoopDeviceSettingsView: View {
                             .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion && isCharging)
                     }
                     Text(batteryPct.map { "\($0)%" } ?? "—")
-                        .font(WhoopType.metric(44))
+                        .font(WhoopType.metric(52))
                         .foregroundStyle(.white)
                         .monospacedDigit()
                 }
