@@ -1,5 +1,7 @@
 #if os(iOS)
 import SwiftUI
+import WhoopStore
+import StrandAnalytics
 import UIKit
 import StrandDesign
 import UserNotifications
@@ -643,6 +645,9 @@ enum DemoScreens {
         case "community": return AnyView(WhoopCommunityView())
         case "terms": return AnyView(TermsGateView(onAccept: {}))
         case "whoophome", "home": return AnyView(WhoopHomeView())
+        case "recoverydetail": return AnyView(WhoopRecoveryDetailDemoHost())
+        case "straindetail": return AnyView(WhoopStrainDetailDemoHost())
+        case "sleepdetail": return AnyView(WhoopSleepDetailDemoHost())
         case "dashboard": return AnyView(WhoopDashboardView())
         case "coach": return AnyView(CoachView())
         default:         return nil
@@ -665,6 +670,53 @@ private struct AddWizardDemoHost: View {
 /// Oura factory-reset-and-adopt prep step (the Beta banner + what-you-get/what-you-lose card + the red
 /// irreversible-consent gate). A SwiftUI View body is main-actor, so it can pull the injected LiveState
 /// and seed the wizard's `startAt` into the Oura prep step without a ring present.
+
+
+#if DEBUG
+/// Seeded Recovery detail for `--demo-screen recoverydetail`.
+private struct WhoopRecoveryDetailDemoHost: View {
+    @EnvironmentObject private var repo: Repository
+    var body: some View {
+        NavigationStack {
+            WhoopRecoveryDetailView(
+                recovery: day?.recovery,
+                hrv: day?.avgHrv,
+                rhr: day?.restingHr,
+                respRate: day?.respRateBpm,
+                sleepPerf: day.flatMap { AnalyticsEngine.Rest.composite(daily: $0) },
+                hrvBaseline: repo.chargeBaselines?.hrv.baseline,
+                rhrBaseline: repo.chargeBaselines.map { Int($0.restingHR.baseline.rounded()) },
+                respBaseline: repo.chargeBaselines?.resp.baseline,
+                sleepBaseline: nil
+            )
+        }
+    }
+    private var day: DailyMetric? { repo.today ?? repo.days.last }
+}
+
+private struct WhoopStrainDetailDemoHost: View {
+    @EnvironmentObject private var repo: Repository
+    var body: some View {
+        NavigationStack {
+            WhoopStrainDetailView(
+                strain: day?.strain,
+                steps: day?.steps,
+                hrZoneMinutes: nil,
+                strengthMinutes: nil,
+                outOf: 21
+            )
+        }
+    }
+    private var day: DailyMetric? { repo.today ?? repo.days.last }
+}
+
+private struct WhoopSleepDetailDemoHost: View {
+    var body: some View {
+        NavigationStack { WhoopSleepDetailView() }
+    }
+}
+#endif
+
 private struct OuraOnboardingDemoHost: View {
     @EnvironmentObject var live: LiveState
     var body: some View {

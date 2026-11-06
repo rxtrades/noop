@@ -3,7 +3,7 @@ import SwiftUI
 import StrandDesign
 import WhoopStore
 
-/// WHOOP-inspired recovery detail: hero ring + vitals rows with trend chevrons.
+/// WHOOP-inspired recovery detail: hero ring + vitals rows with baseline arrows + Coach card.
 struct WhoopRecoveryDetailView: View {
     let recovery: Double?
     let hrv: Double?
@@ -15,39 +15,40 @@ struct WhoopRecoveryDetailView: View {
     let respBaseline: Double?
     let sleepBaseline: Double?
 
+    @EnvironmentObject private var router: NavRouter
+    @State private var ringToken = 0
+
     private var score: Double { recovery ?? 0 }
+    private var fraction: Double { min(max(score / 100, 0), 1) }
+    private var accent: Color { WhoopIOSDesign.recoveryAccent(score: recovery) }
+    private var isCalibrating: Bool { recovery == nil }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                VStack(spacing: 8) {
-                    WhoopleWordmark(size: 13)
-                    ZStack {
-                        Circle()
-                            .stroke(StrandPalette.surfaceInset, lineWidth: 18)
-                        Circle()
-                            .trim(from: 0, to: CGFloat(min(max(score / 100, 0), 1)))
-                            .stroke(
-                                WhoopIOSDesign.recoveryAccent(score: score),
-                                style: StrokeStyle(lineWidth: 18, lineCap: .round)
-                            )
-                            .rotationEffect(.degrees(-90))
-                        VStack(spacing: 4) {
-                            Text(recovery.map { "\(Int($0.rounded()))%" } ?? "—")
-                                .font(StrandFont.display(56))
-                                .foregroundStyle(StrandPalette.textPrimary)
-                            Text("RECOVERY")
-                                .font(StrandFont.overline)
-                                .tracking(StrandFont.overlineTracking)
-                                .textCase(.uppercase)
-                                .foregroundStyle(StrandPalette.textSecondary)
+            VStack(spacing: 16) {
+                WhoopDetailHeroRing(
+                    fraction: isCalibrating ? 0.54 : fraction,
+                    displayValue: score,
+                    format: { isCalibrating ? "—" : "\(Int($0.rounded()))" },
+                    accent: isCalibrating ? WhoopIOSDesign.textTertiary : accent,
+                    label: "Recovery",
+                    valueSuffix: isCalibrating ? nil : "%",
+                    animationToken: ringToken
+                )
+
+                if isCalibrating {
+                    WhoopCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Calibration in progress")
+                                .font(WhoopType.cardTitle())
+                                .foregroundStyle(.white)
+                            Text("Wear \(WhoopleBranding.displayName) to sleep for a few more nights to unlock recovery drivers.")
+                                .font(WhoopType.body(14))
+                                .foregroundStyle(WhoopIOSDesign.textSecondary)
                         }
                     }
-                    .frame(width: 260, height: 260)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, WhoopIOSDesign.pageMargin)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 12)
 
                 WhoopMetricsBeakCard {
                     WhoopMetricTrendRow(
@@ -85,20 +86,43 @@ struct WhoopRecoveryDetailView: View {
                         baseline: sleepBaseline,
                         higherIsBetter: true
                     )
+                    WhoopVsBaselineLegend()
+                        .padding(.bottom, 10)
                 }
-                .padding(.horizontal, NoopMetrics.screenHPadding)
+                .padding(.horizontal, WhoopIOSDesign.pageMargin)
+
+                WhoopCoachCard(message: coachMessage) {
+                    router.openCoach()
+                }
+                .padding(.horizontal, WhoopIOSDesign.pageMargin)
             }
-            .padding(.bottom, NoopMetrics.tabBarClearance + 24)
+            .padding(.bottom, 40)
         }
         .whoopPageBackground()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(StrandPalette.surfaceBase, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .whoopDetailNav(
+            miniFraction: fraction,
+            miniAccent: isCalibrating ? WhoopIOSDesign.textTertiary : accent,
+            miniValue: recovery.map { "\(Int($0.rounded()))" } ?? "—"
+        )
+        .task { ringToken += 1 }
+    }
+
+    private var coachMessage: String {
+        if let recovery {
+            if recovery >= 67 {
+                return String(localized: "Strong recovery — your system looks resilient. A solid strain day is on the table if sleep holds.")
+            }
+            if recovery >= 34 {
+                return String(localized: "Moderate recovery. Train inside today's strain budget and protect tonight's bedtime window.")
+            }
+            return String(localized: "Recovery needs rest. Keep strain light and prioritize sleep consistency tonight.")
+        }
+        return String(localized: "Still calibrating. Keep wearing \(WhoopleBranding.displayName) overnight to unlock recovery coaching.")
     }
 
     private var divider: some View {
         Rectangle()
-            .fill(StrandPalette.hairline)
+            .fill(WhoopIOSDesign.cardBorder)
             .frame(height: 0.5)
             .padding(.leading, 44)
     }
@@ -114,9 +138,10 @@ struct WhoopMetricsBeakCard<Content: View>: View {
                 .frame(width: 18, height: 10)
             VStack(spacing: 0) {
                 content()
+                    .padding(.horizontal, 12)
             }
             .background(
-                RoundedRectangle(cornerRadius: NoopVisualStyle.cardRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
                     .fill(WhoopIOSDesign.card)
             )
         }
@@ -145,28 +170,29 @@ struct WhoopMetricTrendRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(StrandPalette.textSecondary)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
                 .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(StrandFont.caption)
-                    .textCase(.uppercase)
-                    .foregroundStyle(StrandPalette.textTertiary)
-            }
+            Text(label)
+                .font(WhoopType.rowCaps(12))
+                .tracking(0.8)
+                .textCase(.uppercase)
+                .foregroundStyle(WhoopIOSDesign.textPrimary.opacity(0.92))
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(value)
-                    .font(StrandFont.number(28, weight: .bold))
-                    .foregroundStyle(StrandPalette.textPrimary)
+                    .font(WhoopType.metric(20))
+                    .foregroundStyle(WhoopIOSDesign.textPrimary)
+                    .monospacedDigit()
                 if let baseline, let current {
-                    WhoopTrendBadge(current: current, baseline: baseline, higherIsBetter: higherIsBetter,
-                                    suffix: "")
+                    WhoopTrendBadge(current: current, baseline: baseline, higherIsBetter: higherIsBetter, suffix: "")
                 }
             }
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 4)
+        .frame(minHeight: WhoopIOSDesign.rowHeight)
+        .padding(.vertical, 4)
     }
 }
 
@@ -181,14 +207,25 @@ struct WhoopTrendBadge: View {
         if higherIsBetter { return delta >= 0 } else { return delta <= 0 }
     }
 
+    private var isFlat: Bool {
+        guard baseline != 0 else { return abs(delta) < 0.5 }
+        return abs(delta / baseline) < 0.03
+    }
+
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: delta >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
-                .font(.system(size: 8))
-            Text("\(Int(baseline.rounded()))\(suffix)")
-                .font(StrandFont.caption)
+        HStack(spacing: 3) {
+            Image(systemName: isFlat ? "circle.fill" : (delta >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill"))
+                .font(.system(size: isFlat ? 5 : 8, weight: .bold))
+            Text("\(formatBaseline)\(suffix)")
+                .font(WhoopType.caption(11))
+                .monospacedDigit()
         }
-        .foregroundStyle(improved ? StrandPalette.statusPositive : StrandPalette.statusWarning)
+        .foregroundStyle(isFlat ? WhoopIOSDesign.textTertiary : (improved ? WhoopIOSDesign.trendUp : WhoopIOSDesign.trendDown))
+    }
+
+    private var formatBaseline: String {
+        if baseline == floor(baseline) { return "\(Int(baseline.rounded()))" }
+        return String(format: "%.1f", baseline)
     }
 }
 

@@ -805,7 +805,7 @@ struct WhoopHomeView: View {
 
     // MARK: - Destinations / calibration / load
 
-    @ViewBuilder private var sleepDestination: some View { SleepView() }
+    @ViewBuilder private var sleepDestination: some View { WhoopSleepDetailView() }
 
     private var recoveryDestination: some View {
         WhoopRecoveryDetailView(
