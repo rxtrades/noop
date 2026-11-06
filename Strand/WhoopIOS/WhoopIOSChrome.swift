@@ -171,4 +171,157 @@ enum WhoopIOSTabBarAppearance {
     }
 }
 
+enum WhoopTrendDirection {
+    case upGood, upBad, downGood, downBad, flat
+
+    var systemImage: String {
+        switch self {
+        case .upGood, .upBad: return "arrow.up"
+        case .downGood, .downBad: return "arrow.down"
+        case .flat: return "circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .upGood, .downGood: return WhoopIOSDesign.trendUp
+        case .upBad, .downBad: return WhoopIOSDesign.trendDown
+        case .flat: return WhoopIOSDesign.textTertiary
+        }
+    }
+}
+
+struct WhoopStatusBanner: View {
+    var icon: String
+    var tint: Color
+    var title: String
+    var detail: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(WhoopType.cardTitle(15))
+                    .foregroundStyle(.white)
+                Text(detail)
+                    .font(WhoopType.caption())
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.cardRaised)
+                .overlay(
+                    RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                        .stroke(tint.opacity(0.35), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct WhoopDashboardMetricRow: View {
+    var icon: String
+    var title: String
+    var value: String
+    var baseline: String?
+    var trend: WhoopTrendDirection
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
+                .frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(WhoopType.rowCaps(12))
+                    .tracking(WhoopType.rowTracking)
+                    .foregroundStyle(WhoopIOSDesign.textPrimary.opacity(0.92))
+                if let baseline {
+                    Text(baseline)
+                        .font(WhoopType.caption())
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
+                }
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                Text(value)
+                    .font(WhoopType.metric(17))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                Image(systemName: trend.systemImage)
+                    .font(.system(size: trend == .flat ? 5 : 11, weight: .bold))
+                    .foregroundStyle(trend.tint)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: WhoopIOSDesign.rowHeight)
+        .background(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.card)
+        )
+    }
+}
+
+struct WhoopSparkline: View {
+    var values: [Double]
+    var tint: Color
+    var fill: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let vals = values.isEmpty ? [0.0] : values
+            let maxV = max(vals.max() ?? 1, 0.001)
+            let minV = min(vals.min() ?? 0, maxV - 0.001)
+            let span = max(maxV - minV, 0.001)
+            let step = geo.size.width / CGFloat(max(vals.count - 1, 1))
+
+            Path { path in
+                for (i, v) in vals.enumerated() {
+                    let x = CGFloat(i) * step
+                    let y = geo.size.height - CGFloat((v - minV) / span) * geo.size.height
+                    if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                    else { path.addLine(to: CGPoint(x: x, y: y)) }
+                }
+            }
+            .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+            Path { path in
+                for (i, v) in vals.enumerated() {
+                    let x = CGFloat(i) * step
+                    let y = geo.size.height - CGFloat((v - minV) / span) * geo.size.height
+                    if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                    else { path.addLine(to: CGPoint(x: x, y: y)) }
+                }
+                path.addLine(to: CGPoint(x: geo.size.width, y: geo.size.height))
+                path.addLine(to: CGPoint(x: 0, y: geo.size.height))
+                path.closeSubpath()
+            }
+            .fill(fill)
+        }
+    }
+}
+
+struct WhoopDualSparkline: View {
+    var primary: [Double]
+    var secondary: [Double]
+    var primaryTint: Color
+    var secondaryTint: Color
+
+    var body: some View {
+        ZStack {
+            WhoopSparkline(values: secondary, tint: secondaryTint, fill: secondaryTint.opacity(0.10))
+            WhoopSparkline(values: primary, tint: primaryTint, fill: .clear)
+        }
+    }
+}
+
 #endif

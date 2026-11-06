@@ -3,74 +3,121 @@ import SwiftUI
 import StrandDesign
 import WhoopStore
 
-/// WHOOP "My Dashboard" style metric list — reuses stored daily values, dark card rows.
+/// WHOOP "My Dashboard" — one card per metric with baseline + trend (Mobbin 079).
 struct WhoopDashboardView: View {
     @EnvironmentObject private var repo: Repository
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
-                Text("My Dashboard")
-                    .font(StrandFont.title1)
-                    .foregroundStyle(StrandPalette.textPrimary)
-                WhoopCard {
-                    VStack(spacing: 0) {
-                        if let today = repo.today ?? repo.days.last {
-                            dashboardRow("Recovery", value: today.recovery.map { "\(Int($0.rounded()))%" } ?? "—",
-                                         accent: today.recovery.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.textSecondary)
-                            rowDivider
-                            dashboardRow("Day Strain", value: today.strain.map { String(format: "%.1f", $0) } ?? "—",
-                                         accent: StrandPalette.effortColor)
-                            rowDivider
-                            dashboardRow("Sleep", value: today.totalSleepMin.map { formatSleep($0) } ?? "—",
-                                         accent: WhoopIOSDesign.sleepBlue)
-                            rowDivider
-                            dashboardRow("HRV", value: today.avgHrv.map { String(format: "%.0f ms", $0) } ?? "—",
-                                         accent: StrandPalette.metricCyan)
-                            rowDivider
-                            dashboardRow("Resting HR", value: today.restingHr.map { "\($0) bpm" } ?? "—",
-                                         accent: StrandPalette.metricRose)
-                        } else {
-                            Text("Wear your strap and sync to populate dashboard metrics.")
-                                .font(StrandFont.body)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                        }
+            VStack(alignment: .leading, spacing: WhoopIOSDesign.cardGap) {
+                HStack {
+                    Text("My Dashboard")
+                        .font(WhoopType.title(20))
+                        .foregroundStyle(WhoopIOSDesign.textPrimary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text("CUSTOMIZE")
+                            .font(WhoopType.labelCaps(11))
+                            .tracking(0.8)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11, weight: .semibold))
                     }
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
                 }
+                .padding(.bottom, 4)
+
+                ForEach(rows) { row in
+                    NavigationLink(value: TabRoute.metric(row.key)) {
+                        WhoopDashboardMetricRow(
+                            icon: row.icon,
+                            title: row.title,
+                            value: row.value,
+                            baseline: row.baseline,
+                            trend: row.trend
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 NavigationLink(value: TabRoute.metricExplorer) {
                     WhoopCard {
                         WhoopSectionHeader("Explore all metrics")
                     }
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 8)
             }
-            .padding(.horizontal, NoopMetrics.screenHPadding)
+            .padding(.horizontal, WhoopIOSDesign.pageMargin)
             .padding(.top, 12)
-            .padding(.bottom, NoopMetrics.tabBarClearance + 24)
+            .padding(.bottom, 110)
         }
         .whoopPageBackground()
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func dashboardRow(_ title: LocalizedStringKey, value: String, accent: Color) -> some View {
-        HStack {
-            Circle()
-                .fill(accent)
-                .frame(width: 8, height: 8)
-            Text(title)
-                .font(StrandFont.headline)
-                .foregroundStyle(StrandPalette.textPrimary)
-            Spacer(minLength: 8)
-            Text(value)
-                .font(StrandFont.number(17, weight: .semibold))
-                .foregroundStyle(StrandPalette.textSecondary)
-        }
-        .padding(.vertical, 12)
+    private struct Row: Identifiable {
+        let id: String
+        let key: String
+        let icon: String
+        let title: String
+        let value: String
+        let baseline: String?
+        let trend: WhoopTrendDirection
     }
 
-    private var rowDivider: some View {
-        Rectangle().fill(StrandPalette.hairline).frame(height: 0.5)
+    private var rows: [Row] {
+        let today = repo.today ?? repo.days.last
+        let hrv = today?.avgHrv
+        let hrvBase = repo.chargeBaselines?.hrv.baseline
+        let rhr = today?.restingHr
+        let rhrBase = repo.chargeBaselines.map { Int($0.restingHR.baseline.rounded()) }
+
+        func trend(current: Double?, baseline: Double?, higherIsBetter: Bool) -> WhoopTrendDirection {
+            guard let current, let baseline, baseline > 0 else { return .flat }
+            let delta = current - baseline
+            if abs(delta / baseline) < 0.03 { return .flat }
+            let up = delta > 0
+            if higherIsBetter { return up ? .upGood : .downBad }
+            return up ? .upBad : .downGood
+        }
+
+        return [
+            Row(id: "rhr", key: "rhr", icon: "heart.fill", title: "RESTING HEART RATE",
+                value: rhr.map { "\($0)" } ?? "—",
+                baseline: rhrBase.map { "\($0)" },
+                trend: trend(current: rhr.map(Double.init), baseline: rhrBase.map(Double.init), higherIsBetter: false)),
+            Row(id: "steps", key: "steps", icon: "figure.walk", title: "STEPS",
+                value: today?.steps.map { formatted($0) } ?? "—",
+                baseline: "7,500",
+                trend: trend(current: today?.steps.map(Double.init), baseline: 7500, higherIsBetter: true)),
+            Row(id: "hrv", key: "hrv", icon: "waveform.path.ecg", title: "HEART RATE VARIABILITY",
+                value: hrv.map { String(format: "%.0f", $0) } ?? "—",
+                baseline: hrvBase.map { String(format: "%.0f", $0) },
+                trend: trend(current: hrv, baseline: hrvBase, higherIsBetter: true)),
+            Row(id: "kcal", key: "energy_kcal", icon: "flame.fill", title: "CALORIES",
+                value: today?.activeKcalEst.map { formatted(Int($0.rounded())) } ?? "—",
+                baseline: "1,600",
+                trend: trend(current: today?.activeKcalEst, baseline: 1600, higherIsBetter: true)),
+            Row(id: "recovery", key: "recovery", icon: "heart.circle", title: "RECOVERY",
+                value: today?.recovery.map { "\(Int($0.rounded()))%" } ?? "—",
+                baseline: nil,
+                trend: .flat),
+            Row(id: "strain", key: "strain", icon: "flame", title: "STRAIN",
+                value: today?.strain.map { String(format: "%.1f", $0) } ?? "—",
+                baseline: nil,
+                trend: .flat),
+            Row(id: "sleep", key: "sleep_total_min", icon: "moon.zzz", title: "ASLEEP TIME",
+                value: today?.totalSleepMin.map { formatSleep($0) } ?? "—",
+                baseline: nil,
+                trend: .flat),
+        ]
+    }
+
+    private func formatted(_ n: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 
     private func formatSleep(_ minutes: Double) -> String {
