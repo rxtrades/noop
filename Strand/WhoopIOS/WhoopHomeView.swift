@@ -24,6 +24,7 @@ struct WhoopHomeView: View {
     @State private var insightIndex = 0
     @State private var scrollMinY: CGFloat = 0
     @State private var showCompactHeader = false
+    @AppStorage("noop.whoopleFirmwareBannerDismissed") private var firmwareBannerDismissed = false
 
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
     private var effortGaugeMax: Double { effortScale == .whoop ? 21 : 100 }
@@ -443,6 +444,16 @@ struct WhoopHomeView: View {
                 title: String(localized: "Low Battery"),
                 detail: String(localized: "\(pct)% — charge before bed")
             )
+        } else if model.live.connected, !firmwareBannerDismissed, selectedDayOffset == 0 {
+            Button { firmwareBannerDismissed = true } label: {
+                WhoopStatusBanner(
+                    icon: "arrow.down.circle.fill",
+                    tint: WhoopIOSDesign.strainBlue,
+                    title: String(localized: "Firmware update available"),
+                    detail: String(localized: "Tap Devices to review and update when ready")
+                )
+            }
+            .buttonStyle(.plain)
         } else if !model.live.connected, selectedDayOffset == 0 {
             WhoopStatusBanner(
                 icon: "antenna.radiowaves.left.and.right.slash",

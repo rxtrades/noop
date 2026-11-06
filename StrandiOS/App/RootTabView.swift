@@ -457,20 +457,23 @@ struct RootTabView: View {
 
     /// The Devices manager wrapped in its own nav stack + Done button (mirrors `quickScreen`, but
     /// dismisses the dedicated `showDevices` sheet rather than the quick-action item).
-    private var devicesScreen: some View {
-        NavigationStack {
-            DevicesView()
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
-                // #1027: same fix as quickScreen — Devices draws the full-bleed liquid sky, so a transparent
-                // nav bar keeps it edge-to-edge instead of an opaque band clipping the top on scroll.
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showDevices = false }
-                            .foregroundStyle(StrandPalette.accent)
+    @ViewBuilder private var devicesScreen: some View {
+        if whoopHomeEnabled {
+            WhoopDevicesView()
+                .preferredColorScheme(.dark)
+        } else {
+            NavigationStack {
+                DevicesView()
+                    .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showDevices = false }
+                                .foregroundStyle(StrandPalette.accent)
+                        }
                     }
-                }
+            }
         }
     }
 
