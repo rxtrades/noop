@@ -680,6 +680,12 @@ enum DemoScreens {
             return AnyView(NavigationStack { WhoopAppSettingsView() }.preferredColorScheme(.dark))
         case "whoopcoachkey":
             return AnyView(NavigationStack { WhoopCoachAPIKeySettingsView() }.preferredColorScheme(.dark))
+        case "whooplehealth":
+            return AnyView(WhoopHealthTabView().preferredColorScheme(.dark))
+        case "whooplestress":
+            return AnyView(NavigationStack { WhoopStressMonitorView() }.preferredColorScheme(.dark))
+        case "whooplecoach":
+            return AnyView(WhoopCoachSheet().preferredColorScheme(.dark))
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())

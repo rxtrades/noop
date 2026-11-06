@@ -113,7 +113,7 @@ struct WhoopFloatingTabBar: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Coach and devices")
+        .accessibilityLabel("Coach")
     }
 }
 

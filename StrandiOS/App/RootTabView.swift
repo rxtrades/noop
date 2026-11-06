@@ -30,6 +30,7 @@ struct RootTabView: View {
     let homeScreenQuickActionsEnabled: Bool
 
     @EnvironmentObject private var repo: Repository
+    @EnvironmentObject private var coach: AICoachEngine
     /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Devices isn't a tab — it lives
     /// behind the More list — so a request presents it as a sheet, matching the quick-action screens.
     @EnvironmentObject private var router: NavRouter
@@ -40,6 +41,7 @@ struct RootTabView: View {
     @State private var quickAction: QuickAction?
     /// Presents the Devices manager (pair / switch bands) when a screen asks the shell to open it.
     @State private var showDevices = false
+    @State private var showCoach = false
     /// A routed v5 pillar screen (Insights hub / Lab Book / fused record / Rhythm) presented as a sheet
     /// when a hub row deep-links to it via NavRouter. nil = closed.
     @State private var routedPillar: NavRouter.Destination?
@@ -139,7 +141,7 @@ struct RootTabView: View {
                 path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(
                 Group {
-                    if whoopHomeEnabled { WhoopWeeklyTrendsView() }
+                    if whoopHomeEnabled { WhoopHealthTabView() }
                     else { TrendsView() }
                 },
                 whoopHomeEnabled ? "Health" : "Trends",
@@ -229,6 +231,11 @@ struct RootTabView: View {
         .sheet(isPresented: $showDevices) {
             devicesScreen
         }
+        .sheet(isPresented: $showCoach) {
+            WhoopCoachSheet()
+                .environmentObject(coach)
+                .preferredColorScheme(.dark)
+        }
         // v5 pillar deep-links (Insights hub / Lab Book / fused record / Rhythm) present as a sheet in
         // their own nav stack — the same idiom the quick-action + Devices screens use on iPhone.
         .sheet(item: $routedPillar) { dest in
@@ -317,7 +324,7 @@ struct RootTabView: View {
                         selectedTab: $selectedTab,
                         coachEnabled: coachEnabled,
                         onReselect: reselectTab,
-                        onFAB: { showDevices = true }
+                        onFAB: { showCoach = true }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -348,6 +355,7 @@ struct RootTabView: View {
         homeScreenQuickActions.consume(action)
         withAnimation(Self.sheetEase) {
             showDevices = false
+            showCoach = false
             routedPillar = nil
             quickAction = destination
         }
