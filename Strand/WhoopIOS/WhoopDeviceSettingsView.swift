@@ -25,6 +25,13 @@ struct WhoopDeviceSettingsView: View {
     @State private var showClassicWizard = false
     @State private var showUnpairConfirm = false
 
+    /// Demo / screenshot harness — force charging + PowerPack visuals without BLE.
+    @AppStorage("whoople.demo.deviceCharging") private var demoCharging = false
+    @AppStorage("whoople.demo.devicePackAttached") private var demoPackAttached = false
+    @AppStorage("whoople.demo.devicePackPct") private var demoPackPct = 51
+    @AppStorage("whoople.demo.deviceBatteryPct") private var demoBatteryPct = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     enum Tab: String, CaseIterable, Identifiable {
         case status = "STATUS"
         case advanced = "ADVANCED"
@@ -32,7 +39,23 @@ struct WhoopDeviceSettingsView: View {
     }
 
     private var batteryPct: Int? {
-        live.batteryPct.map { Int($0.rounded()) }
+        if demoBatteryPct > 0 { return demoBatteryPct }
+        return live.batteryPct.map { Int($0.rounded()) }
+    }
+
+    private var isCharging: Bool {
+        if demoCharging { return true }
+        return live.charging == true
+    }
+
+    private var packAttached: Bool {
+        if demoPackAttached { return true }
+        return live.packSocPct != nil
+    }
+
+    private var packPct: Int? {
+        if demoPackAttached { return demoPackPct }
+        return live.packSocPct.map { Int($0.rounded()) }
     }
 
     private var deviceTitle: String {
@@ -92,6 +115,7 @@ struct WhoopDeviceSettingsView: View {
         .onAppear {
             hrBroadcaster.bind(to: live)
             if phoneBroadcastHr { hrBroadcaster.start() }
+            applyDemoLaunchArgs()
         }
         .onDisappear { hrBroadcaster.stop() }
         .fullScreenCover(isPresented: $showPairing) {
@@ -118,6 +142,22 @@ struct WhoopDeviceSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes the Bluetooth connection for this strap.")
+        }
+    }
+
+    private func applyDemoLaunchArgs() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--demo-device-charging") || args.contains("devicecharging") {
+            demoCharging = true
+            if demoBatteryPct == 0 { demoBatteryPct = 66 }
+        }
+        if args.contains("--demo-device-pack") || args.contains("devicepack") {
+            demoPackAttached = true
+            if demoPackPct <= 0 { demoPackPct = 51 }
+            if demoBatteryPct == 0 { demoBatteryPct = 66 }
+        }
+        if let i = args.firstIndex(of: "--demo-device-battery"), i + 1 < args.count, let v = Int(args[i + 1]) {
+            demoBatteryPct = max(1, min(100, v))
         }
     }
 
@@ -183,45 +223,67 @@ struct WhoopDeviceSettingsView: View {
 
     private var statusContent: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .center, spacing: 16) {
-                strapHero
+            HStack(alignment: .center, spacing: 14) {
+                ZStack(alignment: .topTrailing) {
+                    strapHero
+                    if packAttached, let pp = packPct {
+                        powerPackFloatingBadge(pp)
+                            .offset(x: 10, y: 18)
+                    }
+                }
                 batteryBlock
             }
             .padding(.vertical, 8)
 
+            if packAttached {
+                powerPackCard
+            }
+
             broadcastCard
+
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--demo-device-controls") {
+                demoChargeControls
+            }
+            #endif
         }
+    }
+
+    private func powerPackFloatingBadge(_ pct: Int) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "battery.75")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.95, green: 0.78, blue: 0.2))
+            Text("\(pct)%")
+                .font(WhoopType.caption(11))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+            Text("POWERPACK")
+                .font(WhoopType.labelCaps(8))
+                .tracking(0.4)
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.55))
+                .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+        )
     }
 
     private var strapHero: some View {
         ZStack(alignment: .topTrailing) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(WhoopIOSDesign.surfaceList)
-                .frame(width: 168, height: 168)
-            VStack(spacing: 12) {
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(hex: "#2E333A"), Color(hex: "#14171B")],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                    )
-                    .frame(width: 108, height: 34)
-                    .overlay(
-                        HStack(spacing: 6) {
-                            Capsule().fill(Color.white.opacity(0.12)).frame(width: 22, height: 10)
-                            Text("W")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
-                    )
-                    .shadow(color: .black.opacity(0.45), radius: 8, y: 4)
-                Text(WhoopleBranding.displayName.uppercased())
-                    .font(WhoopType.caption(10))
-                    .tracking(1.6)
-                    .foregroundStyle(WhoopIOSDesign.textSecondary)
-            }
-            if let pct = batteryPct, pct <= 20 {
+            WhoopStrapHero3DView(
+                charging: isCharging,
+                packAttached: packAttached,
+                batteryFraction: Double(batteryPct ?? 66) / 100.0,
+                reduceMotion: reduceMotion
+            )
+            if isCharging {
+                chargingBadge
+                    .offset(x: 6, y: -6)
+            } else if let pct = batteryPct, pct <= 20 {
                 Text("CHARGE YOUR STRAP")
                     .font(WhoopType.labelCaps(9))
                     .tracking(0.5)
@@ -234,16 +296,38 @@ struct WhoopDeviceSettingsView: View {
         }
     }
 
+    private var chargingBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 9, weight: .bold))
+            Text("CHARGING")
+                .font(WhoopType.labelCaps(9))
+                .tracking(0.5)
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 5).fill(WhoopIOSDesign.recoveryGreen))
+    }
+
     private var batteryBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
-                Text(batteryPct.map { "\($0)%" } ?? "—")
-                    .font(WhoopType.metric(44))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if isCharging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(WhoopIOSDesign.recoveryGreen)
+                            .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion && isCharging)
+                    }
+                    Text(batteryPct.map { "\($0)%" } ?? "—")
+                        .font(WhoopType.metric(44))
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                }
                 batteryMeter
             }
-            Text(deviceModelLabel.uppercased())
+            Text(statusBatteryCaption)
                 .font(WhoopType.caption(11))
                 .tracking(0.8)
                 .foregroundStyle(WhoopIOSDesign.textSecondary)
@@ -251,22 +335,130 @@ struct WhoopDeviceSettingsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var statusBatteryCaption: String {
+        if isCharging {
+            return "CHARGING · \(deviceModelLabel.uppercased())"
+        }
+        if packAttached, let pp = packPct {
+            return "POWERPACK \(pp)% · \(deviceModelLabel.uppercased())"
+        }
+        return deviceModelLabel.uppercased()
+    }
+
+    /// Vertical fill meter (Mobbin 119 / PowerPack Status) with charging glow.
     private var batteryMeter: some View {
         let pct = Double(batteryPct ?? 0) / 100
+        let fillH = 58 * max(min(pct, 1), 0.04)
         return ZStack(alignment: .bottom) {
-            Capsule().stroke(WhoopIOSDesign.ringTrack, lineWidth: 1.5)
-            Capsule().fill(batteryTint)
-                .frame(height: 58 * max(pct, 0.04))
+            Capsule()
+                .stroke(WhoopIOSDesign.ringTrack, lineWidth: 1.5)
+                .frame(width: 14, height: 58)
+            Capsule()
+                .fill(batteryTint)
+                .frame(width: 12, height: fillH)
+                .shadow(color: isCharging ? WhoopIOSDesign.recoveryGreen.opacity(0.9) : .clear, radius: isCharging ? 8 : 0)
+            if isCharging && !reduceMotion {
+                ChargingMeterGlow(height: fillH)
+            }
         }
         .frame(width: 14, height: 58)
     }
 
     private var batteryTint: Color {
+        if isCharging { return WhoopIOSDesign.recoveryGreen }
         guard let pct = batteryPct else { return WhoopIOSDesign.textTertiary }
         if pct <= 15 { return WhoopIOSDesign.recoveryRed }
         if pct <= 40 { return WhoopIOSDesign.recoveryYellow }
         return WhoopIOSDesign.recoveryGreen
     }
+
+    /// PowerPack Status card — Mobbin d035bbaf / Device & battery flow.
+    private var powerPackCard: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "battery.100.bolt")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(WhoopIOSDesign.recoveryGreen)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("POWERPACK")
+                    .font(WhoopType.rowCaps(12))
+                    .tracking(0.8)
+                    .foregroundStyle(.white)
+                Text(packAttached ? "ATTACHED · EXTENDING STRAP LIFE" : "NOT ATTACHED")
+                    .font(WhoopType.caption(10))
+                    .tracking(0.5)
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+            }
+            Spacer()
+            Text(packPct.map { "\($0)%" } ?? "—")
+                .font(WhoopType.metric(22))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.surfaceList)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .stroke(isCharging ? WhoopIOSDesign.recoveryGreen.opacity(0.35) : Color.clear, lineWidth: 1)
+        )
+    }
+
+    #if DEBUG
+    private var demoChargeControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DEMO · DEVICE HERO")
+                .font(WhoopType.labelCaps(10))
+                .tracking(1.0)
+                .foregroundStyle(WhoopIOSDesign.textTertiary)
+            Toggle(isOn: $demoCharging) {
+                Text("Simulate charging")
+                    .font(WhoopType.caption(12))
+                    .foregroundStyle(.white)
+            }
+            .tint(WhoopIOSDesign.recoveryGreen)
+            Toggle(isOn: $demoPackAttached) {
+                Text("Simulate PowerPack attached")
+                    .font(WhoopType.caption(12))
+                    .foregroundStyle(.white)
+            }
+            .tint(WhoopIOSDesign.recoveryGreen)
+            if demoPackAttached {
+                HStack {
+                    Text("Pack \(demoPackPct)%")
+                        .font(WhoopType.caption(12))
+                        .foregroundStyle(WhoopIOSDesign.textSecondary)
+                    Slider(value: Binding(
+                        get: { Double(demoPackPct) },
+                        set: { demoPackPct = Int($0.rounded()) }
+                    ), in: 1...100, step: 1)
+                    .tint(WhoopIOSDesign.recoveryGreen)
+                }
+            }
+            HStack {
+                Text("Strap \(demoBatteryPct == 0 ? (batteryPct ?? 0) : demoBatteryPct)%")
+                    .font(WhoopType.caption(12))
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+                Slider(value: Binding(
+                    get: { Double(demoBatteryPct == 0 ? (batteryPct ?? 66) : demoBatteryPct) },
+                    set: { demoBatteryPct = Int($0.rounded()) }
+                ), in: 1...100, step: 1)
+                .tint(WhoopIOSDesign.recoveryGreen)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.surfaceList.opacity(0.7))
+        )
+    }
+    #endif
 
     private var deviceModelLabel: String {
         device?.displayName ?? "\(WhoopleBranding.displayName) strap"
@@ -394,6 +586,33 @@ struct WhoopDeviceSettingsView: View {
                 .foregroundStyle(WhoopIOSDesign.textSecondary)
                 .padding(.horizontal, 4)
         }
+    }
+}
+
+
+/// Soft rising glow over the vertical battery meter while charging (WHOOP-like pulse).
+private struct ChargingMeterGlow: View {
+    var height: CGFloat
+    @State private var phase = false
+    var body: some View {
+        Capsule()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        WhoopIOSDesign.recoveryGreen.opacity(0.05),
+                        WhoopIOSDesign.recoveryGreen.opacity(phase ? 0.75 : 0.25),
+                        WhoopIOSDesign.recoveryGreen.opacity(0.05)
+                    ],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+            )
+            .frame(width: 12, height: height)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true)) {
+                    phase = true
+                }
+            }
     }
 }
 

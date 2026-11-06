@@ -638,7 +638,8 @@ enum DemoScreens {
         case "chargebreakdown": return AnyView(ChargeBreakdownDemoHost())
         case "devices":  return AnyView(DevicesView())
         case "whoopledevices": return AnyView(WhoopDevicesView())
-        case "devicesettings": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
+        case "devicesettings", "devicecharging", "devicepack":
+            return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
         case "devicesettingsadvanced": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
         case "pairing": return AnyView(WhoopPairingFlowView(onFinished: {}, onOpenClassicWizard: {}))
         case "whoopleplus":
