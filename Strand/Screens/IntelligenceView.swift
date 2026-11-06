@@ -276,7 +276,7 @@ struct IntelligenceView: View {
                                 tint: d.source == .computed ? StrandPalette.chargeColor : StrandPalette.accent)
                 }
                 HStack(spacing: 0) {
-                    stat(String(localized: "Charge"), d.recovery.map { "\(Int($0.rounded()))%" } ?? "—",
+                    stat(String(localized: "Recovery"), d.recovery.map { "\(Int($0.rounded()))%" } ?? "—",
                          d.recovery.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.textSecondary)
                     stat(String(localized: "Effort"), d.strain.map { UnitFormatter.effortDisplay($0, scale: effortScale) } ?? "—",
                          d.strain.map { StrandPalette.strainColor($0) } ?? StrandPalette.textSecondary)

@@ -45,7 +45,13 @@ struct RootTabView: View {
     @State private var routedPillar: NavRouter.Destination?
     /// Selected tab — bound so tab switches can crossfade (README §Motion: ~240ms opacity swap
     /// between tab roots, calm easing). Defaults to Today.
-    @State private var selectedTab: Int = 0
+    @State private var selectedTab: Int = {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "--whoople-tab"), i + 1 < args.count, let t = Int(args[i + 1]) {
+                return t
+            }
+            return 0
+        }()
     /// One `NavigationPath` per tab, indexed by tab tag. Re-tapping the already-active tab pops
     /// that tab's stack to its root (#135) by clearing its path — an animated pop that leaves the
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
@@ -72,9 +78,9 @@ struct RootTabView: View {
 
     /// The Today tab root, honouring the WHOOP / liquid / classic preference.
     @ViewBuilder private var todayTabRoot: some View {
-        if whoopHomeEnabled { WhoopHomeView() }
-        else if liquidTodayEnabled { LiquidTodayView() }
-        else { TodayView() }
+        // Phase 0: Whoople has one Home. Classic Today / Liquid Today are retired from the tab root
+        // (still reachable from Settings / demo harness if needed, not as parallel homes).
+        WhoopHomeView()
     }
 
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
@@ -134,9 +140,15 @@ struct RootTabView: View {
             tab(TrendsView(), whoopHomeEnabled ? "Health" : "Trends",
                 whoopHomeEnabled ? "heart.text.square" : "chart.line.uptrend.xyaxis",
                 path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepView(), whoopHomeEnabled ? "Community" : "Sleep",
+            tab(
+                Group {
+                    if whoopHomeEnabled { WhoopCommunityView() }
+                    else { SleepView() }
+                },
+                whoopHomeEnabled ? "Community" : "Sleep",
                 whoopHomeEnabled ? "person.3" : "bed.double",
-                path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+                path: $tabPaths[2], scrollSignal: scrollTop[2]
+            ).tag(2)
             // K3: Coach promoted to a top-level tab (was behind the More list). The sparkles icon
             // matches the More-tab row and the macOS sidebar entry.
             // Conditional on the master switch. The tags stay LITERAL rather than being renumbered when

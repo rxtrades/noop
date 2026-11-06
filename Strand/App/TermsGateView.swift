@@ -18,7 +18,7 @@ struct TermsGateView: View {
 
             VStack(spacing: 0) {
                 VStack(spacing: 6) {
-                    Text("Before you use NOOP")
+                    Text("Before you use \(ProductBrand.displayName)")
                         .font(StrandFont.title1)
                         .foregroundStyle(StrandPalette.textPrimary)
                     Text("Please read the points below, then confirm each statement.")
@@ -33,10 +33,10 @@ struct TermsGateView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         ForEach(Terms.points, id: \.0) { point in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(point.0)
+                                Text(Self.branded(point.0))
                                     .font(StrandFont.headline)
                                     .foregroundStyle(StrandPalette.textPrimary)
-                                Text(point.1)
+                                Text(Self.branded(point.1))
                                     .font(StrandFont.footnote)
                                     .foregroundStyle(StrandPalette.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -55,7 +55,7 @@ struct TermsGateView: View {
 
                         ForEach(Array(Terms.attestations.enumerated()), id: \.offset) { idx, line in
                             Toggle(isOn: Binding(get: { checks[idx] }, set: { checks[idx] = $0 })) {
-                                Text(line)
+                                Text(Self.branded(line))
                                     .font(StrandFont.footnote)
                                     .foregroundStyle(StrandPalette.textPrimary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -65,7 +65,7 @@ struct TermsGateView: View {
                             #endif
                         }
 
-                        Text("The full terms are in TERMS.md, shipped with NOOP. This is not legal advice.")
+                        Text("The full terms are in TERMS.md, shipped with \(ProductBrand.displayName). This is not legal advice.")
                             .font(StrandFont.footnote)
                             .foregroundStyle(StrandPalette.textTertiary)
                             .padding(.top, 2)
@@ -97,5 +97,10 @@ struct TermsGateView: View {
             }
             .frame(maxWidth: 560, maxHeight: 720)
         }
+    }
+
+    /// Phase 0: show Whoople on iOS while shared copy still keys off "NOOP".
+    private static func branded(_ text: String) -> String {
+        text.replacingOccurrences(of: "NOOP", with: ProductBrand.displayName)
     }
 }

@@ -640,6 +640,11 @@ enum DemoScreens {
         // + self-service pairing guidance, screenshot-able WITHOUT reproducing the bond refusal on real
         // hardware.
         case "bondrefused": return AnyView(BondRefusedDemoScreen())
+        case "community": return AnyView(WhoopCommunityView())
+        case "terms": return AnyView(TermsGateView(onAccept: {}))
+        case "whoophome", "home": return AnyView(WhoopHomeView())
+        case "dashboard": return AnyView(WhoopDashboardView())
+        case "coach": return AnyView(CoachView())
         default:         return nil
         }
     }

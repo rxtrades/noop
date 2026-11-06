@@ -1863,8 +1863,10 @@ struct SettingsView: View {
     @ViewBuilder private var experimentalCard: some View {
         #if os(iOS)
         whoopHomeCard
-        #endif
+        // Phase 0: Liquid / classic Today retired from the Home tab — Whoople home is the only root.
+        #else
         liquidTodayCard
+        #endif
         liveSessionsCard
         // WHOOP 5/MG protocol research now lives in Test Centre. Everyday Settings no longer carries
         // a second copy; the persisted keys and reversible disable actions remain unchanged there.
@@ -1875,16 +1877,16 @@ struct SettingsView: View {
     }
 
     #if os(iOS)
-    /// WHOOP-inspired dark Today (default ON on iOS). Off falls through to Liquid / classic Today toggles.
+    /// Whoople chrome (default ON): floating tab bar, Community tab, dark lock. Home is always WhoopHomeView.
     @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
     private var whoopHomeCard: some View {
         SettingsSection(
             icon: "circle.circle",
-            title: "Whoople home",
-            blurb: "True-black home with Sleep, Recovery, and Strain rings. When on, the whole app stays dark so every tab matches Whoople."
+            title: "Whoople chrome",
+            blurb: "Floating tab bar, Community tab, and dark theme lock. Home always shows Sleep, Recovery, and Strain — classic Today is retired."
         ) {
             Toggle(isOn: $whoopHomeEnabled) {
-                Text("Whoople home screen")
+                Text("Whoople chrome")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textPrimary)
             }

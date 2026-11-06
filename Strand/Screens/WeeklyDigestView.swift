@@ -120,9 +120,9 @@ extension WeeklyMetric {
     /// pure StrandAnalytics narration uses, so the UI resolves its own through the catalogue.
     var localizedName: String {
         switch self {
-        case .charge: return String(localized: "Charge")
-        case .effort: return String(localized: "Effort")
-        case .rest:   return String(localized: "Rest")
+        case .charge: return String(localized: "Recovery")
+        case .effort: return String(localized: "Strain")
+        case .rest:   return String(localized: "Sleep")
         case .rhr:    return String(localized: "Resting HR")
         case .hrv:    return String(localized: "HRV")
         }
