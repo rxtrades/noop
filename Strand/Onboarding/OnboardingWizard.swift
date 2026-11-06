@@ -195,7 +195,7 @@ public struct OnboardingWizard: View {
         case .importData: return String(localized: "Continue")
         case .notifications: return String(localized: "Continue")
         case .appearance: return String(localized: "Continue")
-        case .done:       return String(localized: "Enter NOOP")
+        case .done:       return "Enter \(ProjectInfo.appName)"
         }
     }
 
@@ -284,6 +284,12 @@ private struct WelcomeStep: View {
                 BrandMark(size: 120)
                     .scaleEffect(appear ? 1 : 0.92)
                     .opacity(appear ? 1 : 0)
+                #if os(iOS)
+                Text(ProjectInfo.appName)
+                    .font(StrandFont.title1)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .opacity(appear ? 1 : 0)
+                #endif
                 Text("all your data, none of the cloud")
                     .font(StrandFont.title2)
                     .foregroundStyle(StrandPalette.textSecondary)

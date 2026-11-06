@@ -1861,7 +1861,12 @@ struct SettingsView: View {
     /// model — a 4.0 owner still needs the export to share decoded streams. The SpO2 candidate card is
     /// split out the same way (see `spo2CandidateCard`'s comment) — it is NOT WHOOP-5/MG-specific.
     @ViewBuilder private var experimentalCard: some View {
+        #if os(iOS)
+        whoopHomeCard
+        // Phase 0: Liquid / classic Today retired from the Home tab — Whoople home is the only root.
+        #else
         liquidTodayCard
+        #endif
         liveSessionsCard
         // WHOOP 5/MG protocol research now lives in Test Centre. Everyday Settings no longer carries
         // a second copy; the persisted keys and reversible disable actions remain unchanged there.
@@ -1871,9 +1876,28 @@ struct SettingsView: View {
         rawSensorDiagnosticsCard
     }
 
-    /// Opt-in liquid Today redesign (default ON in this build). Off falls back to the
-    /// classic dashboard immediately, no rebuild. Same data either way.
-    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
+    #if os(iOS)
+    /// Whoople chrome (default ON): floating tab bar, Community tab, dark lock. Home is always WhoopHomeView.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    private var whoopHomeCard: some View {
+        SettingsSection(
+            icon: "circle.circle",
+            title: "Whoople chrome",
+            blurb: "Floating tab bar, Community tab, and dark theme lock. Home always shows Sleep, Recovery, and Strain — classic Today is retired."
+        ) {
+            Toggle(isOn: $whoopHomeEnabled) {
+                Text("Whoople chrome")
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textPrimary)
+            }
+            .toggleStyle(.switch)
+            .tint(StrandPalette.accent)
+        }
+    }
+    #endif
+
+    /// Opt-in liquid Today redesign. Off falls back to the classic dashboard immediately, no rebuild.
+    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = false
     private var liquidTodayCard: some View {
         SettingsSection(
             icon: "drop.fill",
@@ -2340,11 +2364,11 @@ struct SettingsView: View {
         SettingsSection(
             icon: "info.circle.fill",
             title: "About",
-            blurb: "NOOP: all your data, none of the cloud."
+            blurb: "\(ProjectInfo.appName): all your data, none of the cloud."
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    Text("NOOP")
+                    Text(ProjectInfo.appName)
                         .font(StrandFont.title2)
                         .foregroundStyle(StrandPalette.textPrimary)
                     StatePill("v\(bundleVersionString)", tone: .neutral, showsDot: false)
@@ -2365,7 +2389,7 @@ struct SettingsView: View {
                             .foregroundStyle(StrandPalette.accent)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("How NOOP works")
+                            Text("How \(ProjectInfo.appName) works")
                                 .font(StrandFont.body)
                                 .foregroundStyle(StrandPalette.textPrimary)
                             Text("Sleep sorting, scores, recording, and where your numbers come from.")

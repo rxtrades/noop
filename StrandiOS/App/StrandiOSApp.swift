@@ -1,5 +1,8 @@
 #if os(iOS)
 import SwiftUI
+import WhoopStore
+import StrandAnalytics
+import UIKit
 import StrandDesign
 import UserNotifications
 
@@ -39,10 +42,13 @@ struct StrandiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
     /// Appearance preference (System/Light/Dark). Default follows the OS; the Settings picker writes it.
     @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    /// Whoople home (default ON): lock the whole iOS app to dark so every tab matches the true-black home.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
     /// Chart data-colour style (Titanium / Classic throwback). Re-colours gauges + charts.
-    @AppStorage(ChartStyle.storageKey) private var chartStyleRaw = ChartStyle.titanium.rawValue
-    /// Chrome accent colour (mint / WHOOP blue / custom). Chrome only — never the data colour worlds.
-    @AppStorage(AccentColor.storageKey) private var accentRaw = AccentColor.mint.rawValue
+    /// Classic data ramps (green recovery, blue strain) match the WHOOP-inspired iOS skin; macOS defaults stay titanium.
+    @AppStorage(ChartStyle.storageKey) private var chartStyleRaw = ChartStyle.classic.rawValue
+    /// WHOOP blue chrome on iOS by default.
+    @AppStorage(AccentColor.storageKey) private var accentRaw = AccentColor.whoopBlue.rawValue
     @AppStorage(AccentColor.customHexKey) private var accentCustomHex = AccentColor.defaultCustomHex
     /// Effort's display scale is also embedded in the shared widget snapshot. Observe it here so a
     /// Settings change gets one accurate full rebuild instead of waiting for an unrelated repo refresh.
@@ -149,6 +155,7 @@ struct StrandiOSApp: App {
             await model?.checkStrapNotSeen()
         })
         StaleBatteryBackgroundScheduler.schedule()
+        WhoopIOSTabBarAppearance.apply()
         let bridge = HealthKitBridge(
             repo: model.repo,
             appleDeviceId: model.appleDeviceId,
@@ -234,7 +241,11 @@ struct StrandiOSApp: App {
                 // v5 L3: the shared stress check-in nudge surface, so the Breathe screen's passive
                 // card observes the SAME instance the central detector (AppModel.evaluateStress) posts to.
                 .environment(\.stressNudgeCenter, model.stressNudgeCenter)
-                .preferredColorScheme(AppearanceMode.resolve(appearanceRaw).colorScheme)
+                .preferredColorScheme(whoopHomeEnabled ? .dark : AppearanceMode.resolve(appearanceRaw).colorScheme)
+                // Belt-and-suspenders: UIKit windows stay dark whenever Whoople chrome is on, so sheets,
+                // alerts and UIKit-backed lists cannot fall back to the phone's light appearance.
+                .onAppear { Self.applyWhoopleInterfaceStyle(whoopHomeEnabled) }
+                .onChange(of: whoopHomeEnabled) { _, on in Self.applyWhoopleInterfaceStyle(on) }
                 // Match SwiftUI format styles to the localization selected by the app's bundles. Language
                 // changes are process-wide on Apple and are applied after the documented reopen.
                 .environment(\.locale, AppLanguage.activeLocale)
@@ -422,6 +433,31 @@ struct StrandiOSApp: App {
     /// last-known bpm on a Lock Screen reads as live and is not. `alert` lights the Lock Screen for this
     /// push — see `LiftLiveActivityController.update`.
     @MainActor
+
+    /// Force every connected window into dark (or back to unspecified) for Whoople mode.
+    private static func applyWhoopleInterfaceStyle(_ whoople: Bool) {
+        let style: UIUserInterfaceStyle = whoople ? .dark : .unspecified
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
+        if whoople {
+            let nav = UINavigationBarAppearance()
+            nav.configureWithOpaqueBackground()
+            nav.backgroundColor = .black
+            nav.titleTextAttributes = [.foregroundColor: UIColor.white]
+            nav.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+            UINavigationBar.appearance().standardAppearance = nav
+            UINavigationBar.appearance().scrollEdgeAppearance = nav
+            UINavigationBar.appearance().compactAppearance = nav
+            UINavigationBar.appearance().tintColor = .white
+            UITableView.appearance().backgroundColor = .black
+            UICollectionView.appearance().backgroundColor = .black
+        }
+    }
+
     private func pushLiftActivity(alert: Bool = false) {
         let system = UnitSystem(rawValue: unitSystemRaw) ?? .metric
         guard let p = liftSession.presentation(system: system) else {
@@ -455,6 +491,7 @@ private struct iOSRootView: View {
     @AppStorage("noop.onboarded") private var onboarded = false
     @AppStorage("noop.lastSeenChangelogVersion") private var lastSeenChangelog = ""
     @AppStorage("noop.acceptedTermsVersion") private var acceptedTerms = ""
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
     @State private var showWhatsNew = false
     /// Starts false so a cold-launch external action can't race this view's onAppear decision about the
     /// automatic What's New sheet. It becomes true only when no sheet is due or its dismissal completes.
@@ -486,12 +523,21 @@ private struct iOSRootView: View {
                 demoBypass || (onboarded && acceptedTerms == Terms.currentVersion
                     && automaticLaunchSheetResolved))
             if !onboarded && !demoBypass {
-                OnboardingWizard(onFinished: {
-                    onboarded = true
-                    // A brand-new user just saw the expectations in onboarding — don't also pop the
-                    // changelog at them; mark them current.
-                    lastSeenChangelog = AppChangelog.currentVersion
-                })
+                Group {
+                    if whoopHomeEnabled {
+                        WhoopOnboardingFlow(onFinished: {
+                            onboarded = true
+                            lastSeenChangelog = AppChangelog.currentVersion
+                        })
+                    } else {
+                        OnboardingWizard(onFinished: {
+                            onboarded = true
+                            // A brand-new user just saw the expectations in onboarding — don't also pop the
+                            // changelog at them; mark them current.
+                            lastSeenChangelog = AppChangelog.currentVersion
+                        })
+                    }
+                }
                 .transition(.opacity)
                 .zIndex(1)
             }
@@ -591,6 +637,74 @@ enum DemoScreens {
         case "settings": return AnyView(SettingsView())
         case "chargebreakdown": return AnyView(ChargeBreakdownDemoHost())
         case "devices":  return AnyView(DevicesView())
+        case "whoopledevices": return AnyView(WhoopDevicesView())
+        case "devicesettings", "devicecharging", "devicepack":
+            return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
+        case "devicesettingsadvanced": return AnyView(NavigationStack { WhoopDeviceSettingsView(device: nil) })
+        case "pairing": return AnyView(WhoopPairingFlowView(onFinished: {}, onOpenClassicWizard: {}))
+        case "whoopleplus":
+            return AnyView(
+                ZStack(alignment: .bottom) {
+                    WhoopIOSDesign.bgBase.ignoresSafeArea()
+                    WhoopPlusMenuSheet(onStartActivity: {}, onAddActivity: {}, onJournal: {}, onLive: {}, onBreathwork: {})
+                        .frame(maxHeight: 380)
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "activitypicker":
+            return AnyView(WhoopActivityPickerView(title: "Start Activity", onPick: { _ in }).preferredColorScheme(.dark))
+        case "startactivity":
+            return AnyView(
+                WhoopStartActivitySheet(sport: "Running", onStart: { _ in }, onChangeSport: {})
+                    .background(WhoopIOSDesign.bgBase.ignoresSafeArea())
+                    .preferredColorScheme(.dark)
+            )
+        case "liveactivity":
+            return AnyView(WhoopLiveActivityView().preferredColorScheme(.dark))
+        case "activitydetail":
+            return AnyView(
+                NavigationStack {
+                    WhoopActivityDetailView(sport: "Running", strain: 12.4, avgHr: 148, peakHr: 172,
+                                           calories: 420, durationS: 2340, zoneMinutes: [8, 12, 15, 6, 2])
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "breathwork":
+            return AnyView(NavigationStack { WhoopBreathworkView() }.preferredColorScheme(.dark))
+        case "whooplejournal":
+            return AnyView(WhoopJournalView().preferredColorScheme(.dark))
+        case "journalsaved":
+            return AnyView(
+                ZStack {
+                    WhoopIOSDesign.bgBase.ignoresSafeArea()
+                    WhoopJournalSavedView(onDone: {})
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "journalcustomize":
+            return AnyView(WhoopJournalCustomizeDemoHost())
+        case "whooplesettings":
+            return AnyView(NavigationStack { WhoopSettingsHubView() }.preferredColorScheme(.dark))
+        case "whoopprofile":
+            return AnyView(NavigationStack { WhoopProfileView() }.preferredColorScheme(.dark))
+        case "whoopappsettings":
+            return AnyView(NavigationStack { WhoopAppSettingsView() }.preferredColorScheme(.dark))
+        case "whoopcoachkey":
+            return AnyView(NavigationStack { WhoopCoachAPIKeySettingsView() }.preferredColorScheme(.dark))
+        case "whooplehealth":
+            return AnyView(WhoopHealthTabView().preferredColorScheme(.dark))
+        case "whooplestress":
+            return AnyView(NavigationStack { WhoopStressMonitorView() }.preferredColorScheme(.dark))
+        case "whooplecoach":
+            return AnyView(WhoopCoachSheet().preferredColorScheme(.dark))
+        case "whooplewelcome":
+            return AnyView(WhoopWelcomeSplashView(onHaveDevice: {}, onNoDevice: {}).preferredColorScheme(.dark))
+        case "whoopleonboarding":
+            return AnyView(WhoopOnboardingFlow(onFinished: {}).preferredColorScheme(.dark))
+        case "whooplecommunity":
+            return AnyView(WhoopCommunityView().preferredColorScheme(.dark))
+        case "whooplewhatsnew":
+            return AnyView(WhatsNewView(onClose: {}).preferredColorScheme(.dark))
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())
@@ -606,6 +720,16 @@ enum DemoScreens {
         // + self-service pairing guidance, screenshot-able WITHOUT reproducing the bond refusal on real
         // hardware.
         case "bondrefused": return AnyView(BondRefusedDemoScreen())
+        case "community": return AnyView(WhoopCommunityView())
+        case "terms": return AnyView(TermsGateView(onAccept: {}))
+        case "whoophome", "home": return AnyView(WhoopHomeView())
+        case "recoverydetail": return AnyView(WhoopRecoveryDetailDemoHost())
+        case "straindetail": return AnyView(WhoopStrainDetailDemoHost())
+        case "sleepdetail": return AnyView(WhoopSleepDetailDemoHost())
+        case "weeklytrends": return AnyView(WhoopWeeklyTrendsView())
+        case "trendview": return AnyView(NavigationStack { WhoopTrendView(metricKey: "hrv") })
+        case "dashboard": return AnyView(WhoopDashboardView())
+        case "coach": return AnyView(CoachView())
         default:         return nil
         }
     }
@@ -617,6 +741,16 @@ enum DemoScreens {
 /// DEBUG-only host so `--demo-screen addwizard` can render the multi-step Add-a-device wizard.
 /// A SwiftUI View body is main-actor, so it can pull the injected LiveState and hand it to the
 /// wizard's `init(live:)` (the nonisolated DemoScreens switch can't construct a LiveState itself).
+private struct WhoopJournalCustomizeDemoHost: View {
+    @StateObject private var catalog = JournalCatalogStore()
+    var body: some View {
+        NavigationStack {
+            WhoopJournalCustomizeView(catalog: catalog, importedQuestions: [])
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 private struct AddWizardDemoHost: View {
     @EnvironmentObject var live: LiveState
     var body: some View { AddDeviceWizard(live: live, onClose: {}) }
@@ -626,6 +760,53 @@ private struct AddWizardDemoHost: View {
 /// Oura factory-reset-and-adopt prep step (the Beta banner + what-you-get/what-you-lose card + the red
 /// irreversible-consent gate). A SwiftUI View body is main-actor, so it can pull the injected LiveState
 /// and seed the wizard's `startAt` into the Oura prep step without a ring present.
+
+
+#if DEBUG
+/// Seeded Recovery detail for `--demo-screen recoverydetail`.
+private struct WhoopRecoveryDetailDemoHost: View {
+    @EnvironmentObject private var repo: Repository
+    var body: some View {
+        NavigationStack {
+            WhoopRecoveryDetailView(
+                recovery: day?.recovery,
+                hrv: day?.avgHrv,
+                rhr: day?.restingHr,
+                respRate: day?.respRateBpm,
+                sleepPerf: day.flatMap { AnalyticsEngine.Rest.composite(daily: $0) },
+                hrvBaseline: repo.chargeBaselines?.hrv.baseline,
+                rhrBaseline: repo.chargeBaselines.map { Int($0.restingHR.baseline.rounded()) },
+                respBaseline: repo.chargeBaselines?.resp.baseline,
+                sleepBaseline: nil
+            )
+        }
+    }
+    private var day: DailyMetric? { repo.today ?? repo.days.last }
+}
+
+private struct WhoopStrainDetailDemoHost: View {
+    @EnvironmentObject private var repo: Repository
+    var body: some View {
+        NavigationStack {
+            WhoopStrainDetailView(
+                strain: day?.strain,
+                steps: day?.steps,
+                hrZoneMinutes: nil,
+                strengthMinutes: nil,
+                outOf: 21
+            )
+        }
+    }
+    private var day: DailyMetric? { repo.today ?? repo.days.last }
+}
+
+private struct WhoopSleepDetailDemoHost: View {
+    var body: some View {
+        NavigationStack { WhoopSleepDetailView() }
+    }
+}
+#endif
+
 private struct OuraOnboardingDemoHost: View {
     @EnvironmentObject var live: LiveState
     var body: some View {
