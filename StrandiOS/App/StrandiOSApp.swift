@@ -659,6 +659,18 @@ enum DemoScreens {
             )
         case "breathwork":
             return AnyView(NavigationStack { WhoopBreathworkView() }.preferredColorScheme(.dark))
+        case "whooplejournal":
+            return AnyView(WhoopJournalView().preferredColorScheme(.dark))
+        case "journalsaved":
+            return AnyView(
+                ZStack {
+                    WhoopIOSDesign.bgBase.ignoresSafeArea()
+                    WhoopJournalSavedView(onDone: {})
+                }
+                .preferredColorScheme(.dark)
+            )
+        case "journalcustomize":
+            return AnyView(WhoopJournalCustomizeDemoHost())
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())
@@ -695,6 +707,16 @@ enum DemoScreens {
 /// DEBUG-only host so `--demo-screen addwizard` can render the multi-step Add-a-device wizard.
 /// A SwiftUI View body is main-actor, so it can pull the injected LiveState and hand it to the
 /// wizard's `init(live:)` (the nonisolated DemoScreens switch can't construct a LiveState itself).
+private struct WhoopJournalCustomizeDemoHost: View {
+    @StateObject private var catalog = JournalCatalogStore()
+    var body: some View {
+        NavigationStack {
+            WhoopJournalCustomizeView(catalog: catalog, importedQuestions: [])
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
 private struct AddWizardDemoHost: View {
     @EnvironmentObject var live: LiveState
     var body: some View { AddDeviceWizard(live: live, onClose: {}) }

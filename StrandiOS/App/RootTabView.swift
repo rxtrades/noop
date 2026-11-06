@@ -436,7 +436,13 @@ struct RootTabView: View {
         case .workout:
             quickScreen(WorkoutsView())
         case .journal:
-            quickScreen(InsightsView())
+            if whoopHomeEnabled {
+                WhoopJournalView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.hidden)
+            } else {
+                quickScreen(InsightsView())
+            }
         case .breathe:
             quickScreen(BreathingView())
         case .startActivity:
