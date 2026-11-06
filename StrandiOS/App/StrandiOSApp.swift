@@ -491,6 +491,7 @@ private struct iOSRootView: View {
     @AppStorage("noop.onboarded") private var onboarded = false
     @AppStorage("noop.lastSeenChangelogVersion") private var lastSeenChangelog = ""
     @AppStorage("noop.acceptedTermsVersion") private var acceptedTerms = ""
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
     @State private var showWhatsNew = false
     /// Starts false so a cold-launch external action can't race this view's onAppear decision about the
     /// automatic What's New sheet. It becomes true only when no sheet is due or its dismissal completes.
@@ -522,12 +523,21 @@ private struct iOSRootView: View {
                 demoBypass || (onboarded && acceptedTerms == Terms.currentVersion
                     && automaticLaunchSheetResolved))
             if !onboarded && !demoBypass {
-                OnboardingWizard(onFinished: {
-                    onboarded = true
-                    // A brand-new user just saw the expectations in onboarding — don't also pop the
-                    // changelog at them; mark them current.
-                    lastSeenChangelog = AppChangelog.currentVersion
-                })
+                Group {
+                    if whoopHomeEnabled {
+                        WhoopOnboardingFlow(onFinished: {
+                            onboarded = true
+                            lastSeenChangelog = AppChangelog.currentVersion
+                        })
+                    } else {
+                        OnboardingWizard(onFinished: {
+                            onboarded = true
+                            // A brand-new user just saw the expectations in onboarding — don't also pop the
+                            // changelog at them; mark them current.
+                            lastSeenChangelog = AppChangelog.currentVersion
+                        })
+                    }
+                }
                 .transition(.opacity)
                 .zIndex(1)
             }
@@ -686,6 +696,14 @@ enum DemoScreens {
             return AnyView(NavigationStack { WhoopStressMonitorView() }.preferredColorScheme(.dark))
         case "whooplecoach":
             return AnyView(WhoopCoachSheet().preferredColorScheme(.dark))
+        case "whooplewelcome":
+            return AnyView(WhoopWelcomeSplashView(onHaveDevice: {}, onNoDevice: {}).preferredColorScheme(.dark))
+        case "whoopleonboarding":
+            return AnyView(WhoopOnboardingFlow(onFinished: {}).preferredColorScheme(.dark))
+        case "whooplecommunity":
+            return AnyView(WhoopCommunityView().preferredColorScheme(.dark))
+        case "whooplewhatsnew":
+            return AnyView(WhatsNewView(onClose: {}).preferredColorScheme(.dark))
         case "devicescatalog": return AnyView(DeviceCardCatalog())
         case "fitnessage": return AnyView(FitnessAgeDemoScreen())
         case "vitality": return AnyView(VitalityDemoScreen())

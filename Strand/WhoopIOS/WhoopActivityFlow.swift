@@ -11,6 +11,9 @@ struct WhoopPlusMenuSheet: View {
     var onLive: () -> Void
     var onBreathwork: () -> Void
 
+    @State private var menuAppear = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(spacing: 0) {
             Capsule()
@@ -20,11 +23,11 @@ struct WhoopPlusMenuSheet: View {
                 .padding(.bottom, 18)
 
             VStack(spacing: 10) {
-                menuRow("Start Activity", icon: "play.fill", tint: WhoopIOSDesign.strainBlue, action: onStartActivity)
-                menuRow("Add Activity", icon: "plus", tint: WhoopIOSDesign.mint, action: onAddActivity)
-                menuRow("Journal", icon: "square.and.pencil", tint: WhoopIOSDesign.fabGlowPurple, action: onJournal)
-                menuRow("Breathwork", icon: "wind", tint: WhoopIOSDesign.sleepBlue, action: onBreathwork)
-                menuRow("Live", icon: "waveform.path.ecg", tint: WhoopIOSDesign.recoveryGreen, action: onLive)
+                menuRow("Start Activity", icon: "play.fill", tint: WhoopIOSDesign.strainBlue, index: 0, action: onStartActivity)
+                menuRow("Add Activity", icon: "plus", tint: WhoopIOSDesign.mint, index: 1, action: onAddActivity)
+                menuRow("Journal", icon: "square.and.pencil", tint: WhoopIOSDesign.fabGlowPurple, index: 2, action: onJournal)
+                menuRow("Breathwork", icon: "wind", tint: WhoopIOSDesign.sleepBlue, index: 3, action: onBreathwork)
+                menuRow("Live", icon: "waveform.path.ecg", tint: WhoopIOSDesign.recoveryGreen, index: 4, action: onLive)
             }
             .padding(.horizontal, 16)
             Spacer(minLength: 8)
@@ -36,9 +39,16 @@ struct WhoopPlusMenuSheet: View {
                 .ignoresSafeArea()
         )
         .preferredColorScheme(.dark)
+        .onAppear {
+            if reduceMotion {
+                menuAppear = true
+            } else {
+                withAnimation(WhoopIOSDesign.cardAppear) { menuAppear = true }
+            }
+        }
     }
 
-    private func menuRow(_ title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private func menuRow(_ title: String, icon: String, tint: Color, index: Int, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 ZStack {
@@ -56,6 +66,9 @@ struct WhoopPlusMenuSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .opacity(menuAppear ? 1 : 0)
+        .offset(y: menuAppear ? 0 : 12)
+        .animation(WhoopIOSDesign.cardAppear.delay(Double(index) * 0.05), value: menuAppear)
     }
 }
 

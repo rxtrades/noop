@@ -9,6 +9,7 @@ struct WhoopPairingFlowView: View {
 
     @State private var step: Step = .intro
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Step: Int, CaseIterable {
         case intro, modeHelp, scanning, success
@@ -47,6 +48,7 @@ struct WhoopPairingFlowView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            guard !reduceMotion else { pulse = true; return }
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulse = true
             }

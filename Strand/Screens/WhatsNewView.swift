@@ -6,6 +6,9 @@ import StrandDesign
 /// open GitHub still understand the experimental footing and the WHOOP 5/MG status.
 struct WhatsNewView: View {
     let onClose: () -> Void
+    #if os(iOS)
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +53,16 @@ struct WhatsNewView: View {
         // A long changelog scroll → open full-height, with a grabber for swipe-to-dismiss.
         .noopSheetPresentation(largeFirst: true)
         #endif
-        .background(StrandPalette.surfaceBase)
+        .background {
+            #if os(iOS)
+            Group {
+                if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                else { StrandPalette.surfaceBase.ignoresSafeArea() }
+            }
+            #else
+            StrandPalette.surfaceBase.ignoresSafeArea()
+            #endif
+        }
     }
 
     private var header: some View {
@@ -128,7 +140,31 @@ struct WhatsNewView: View {
         }
     }
 
+    @ViewBuilder
     private var footer: some View {
+        #if os(iOS)
+        if whoopHomeEnabled {
+            Button(action: onClose) {
+                Text("GOT IT")
+                    .font(WhoopType.labelCaps(14))
+                    .tracking(1.2)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Capsule().fill(Color.white))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        } else {
+            classicFooter
+        }
+        #else
+        classicFooter
+        #endif
+    }
+
+    private var classicFooter: some View {
         HStack {
             Spacer()
             Button(action: onClose) {
