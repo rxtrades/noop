@@ -30,6 +30,7 @@ struct RootTabView: View {
     let homeScreenQuickActionsEnabled: Bool
 
     @EnvironmentObject private var repo: Repository
+    @EnvironmentObject private var coach: AICoachEngine
     /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Devices isn't a tab — it lives
     /// behind the More list — so a request presents it as a sheet, matching the quick-action screens.
     @EnvironmentObject private var router: NavRouter
@@ -40,12 +41,19 @@ struct RootTabView: View {
     @State private var quickAction: QuickAction?
     /// Presents the Devices manager (pair / switch bands) when a screen asks the shell to open it.
     @State private var showDevices = false
+    @State private var showCoach = false
     /// A routed v5 pillar screen (Insights hub / Lab Book / fused record / Rhythm) presented as a sheet
     /// when a hub row deep-links to it via NavRouter. nil = closed.
     @State private var routedPillar: NavRouter.Destination?
     /// Selected tab — bound so tab switches can crossfade (README §Motion: ~240ms opacity swap
     /// between tab roots, calm easing). Defaults to Today.
-    @State private var selectedTab: Int = 0
+    @State private var selectedTab: Int = {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "--whoople-tab"), i + 1 < args.count, let t = Int(args[i + 1]) {
+                return t
+            }
+            return 0
+        }()
     /// One `NavigationPath` per tab, indexed by tab tag. Re-tapping the already-active tab pops
     /// that tab's stack to its root (#135) by clearing its path — an animated pop that leaves the
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
@@ -65,13 +73,16 @@ struct RootTabView: View {
     @AppStorage(MoreSectionPrefs.storageKey) private var expandedMoreSectionsCSV = MoreSectionPrefs.defaultCSV
     private var expandedMoreSections: Set<String> { MoreSectionPrefs.decode(expandedMoreSectionsCSV) }
 
-    /// V8 liquid redesign is the default Today; the Settings toggle lets a user fall back to the classic
-    /// Today if they prefer it (keyed identically to the SettingsView toggle). Default ON.
-    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
+    /// WHOOP-inspired dark home (iOS). Default ON; Settings can fall back to Liquid or classic Today.
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    /// V8 liquid redesign; used when WHOOP home is off. Default OFF while WHOOP home is the iOS default.
+    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = false
 
-    /// The Today tab root, honouring the liquid/classic preference.
+    /// The Today tab root, honouring the WHOOP / liquid / classic preference.
     @ViewBuilder private var todayTabRoot: some View {
-        if liquidTodayEnabled { LiquidTodayView() } else { TodayView() }
+        // Phase 0: Whoople has one Home. Classic Today / Liquid Today are retired from the tab root
+        // (still reachable from Settings / demo harness if needed, not as parallel homes).
+        WhoopHomeView()
     }
 
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
@@ -126,9 +137,26 @@ struct RootTabView: View {
         // its dynamic interaction with scrolling content automatically; older supported releases use
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
-            tab(todayTabRoot, "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepView(), "Sleep", "bed.double", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            tab(todayTabRoot, whoopHomeEnabled ? "Home" : "Today", whoopHomeEnabled ? "house" : "square.grid.2x2",
+                path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
+            tab(
+                Group {
+                    if whoopHomeEnabled { WhoopHealthTabView() }
+                    else { TrendsView() }
+                },
+                whoopHomeEnabled ? "Health" : "Trends",
+                whoopHomeEnabled ? "heart.text.square" : "chart.line.uptrend.xyaxis",
+                path: $tabPaths[1], scrollSignal: scrollTop[1]
+            ).tag(1)
+            tab(
+                Group {
+                    if whoopHomeEnabled { WhoopCommunityView() }
+                    else { SleepView() }
+                },
+                whoopHomeEnabled ? "Community" : "Sleep",
+                whoopHomeEnabled ? "person.3" : "bed.double",
+                path: $tabPaths[2], scrollSignal: scrollTop[2]
+            ).tag(2)
             // K3: Coach promoted to a top-level tab (was behind the More list). The sparkles icon
             // matches the More-tab row and the macOS sidebar entry.
             // Conditional on the master switch. The tags stay LITERAL rather than being renumbered when
@@ -140,6 +168,14 @@ struct RootTabView: View {
             }
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
+        .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+        // Whoople: the floating pill is the ONLY bar. Per-tab `.toolbar(.hidden, for: .tabBar)` covers
+        // each root; this UIKit fallback also catches pushed screens that would otherwise re-show it.
+        .onAppear { UITabBar.appearance().isHidden = whoopHomeEnabled }
+        .onChange(of: whoopHomeEnabled) { _, on in UITabBar.appearance().isHidden = on }
+        // Whoople: lock this shell (and every pushed screen under it) to dark so Trends/Sleep/Coach/More
+        // cannot render the light StrandPalette tokens while Home hard-codes true black.
+        .preferredColorScheme(whoopHomeEnabled ? .dark : nil)
         .tint(StrandPalette.accent)
         // Switching Coach off while STANDING on it leaves `selectedTab` pointing at a tag no tab claims
         // any more, which renders as an empty tab rather than as an error. Send that wearer to Today, and
@@ -194,6 +230,11 @@ struct RootTabView: View {
         // present the Devices manager in its own nav stack, the same way the quick-action screens do.
         .sheet(isPresented: $showDevices) {
             devicesScreen
+        }
+        .sheet(isPresented: $showCoach) {
+            WhoopCoachSheet()
+                .environmentObject(coach)
+                .preferredColorScheme(.dark)
         }
         // v5 pillar deep-links (Insights hub / Lab Book / fused record / Rhythm) present as a sheet in
         // their own nav stack — the same idiom the quick-action + Devices screens use on iPhone.
@@ -271,13 +312,22 @@ struct RootTabView: View {
         // inside the Lift Log screen, because a workout outlives whichever screen you wandered to —
         // and because swiping the sheet away must minimise the session, not end it.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if liftSession.isActive {
-                LiftSessionBar()
-                    .padding(.horizontal, 14)
-                    // Clear the floating tab bar with the same constant every screen uses, or the
-                    // session bar sits on top of the tab labels.
-                    .padding(.bottom, NoopMetrics.tabBarClearance)
+            VStack(spacing: 0) {
+                if liftSession.isActive {
+                    LiftSessionBar()
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if whoopHomeEnabled, !liftSession.isActive {
+                    WhoopFloatingTabBar(
+                        selectedTab: $selectedTab,
+                        coachEnabled: coachEnabled,
+                        onReselect: reselectTab,
+                        onFAB: { showCoach = true }
+                    )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: liftSession.isActive)
@@ -305,6 +355,7 @@ struct RootTabView: View {
         homeScreenQuickActions.consume(action)
         withAnimation(Self.sheetEase) {
             showDevices = false
+            showCoach = false
             routedPillar = nil
             quickAction = destination
         }
@@ -320,7 +371,8 @@ struct RootTabView: View {
                 case .labBook: LabBookView()
                 case .fusedRecord: FusedRecordHost()
                 case .rhythm: RhythmHost(onClose: { routedPillar = nil })
-                case .devices: DevicesView()
+                case .devices:
+                    if whoopHomeEnabled { WhoopDevicesView() } else { DevicesView() }
                 // .trends is never presented as a pillar sheet on iPhone (it's a primary tab — the
                 // requestedDestination handler switches `selectedTab` instead), but the switch must stay
                 // exhaustive. Fall back to Trends inside the sheet host if it ever arrives here.
@@ -369,24 +421,60 @@ struct RootTabView: View {
     private func quickActionDestination(_ action: QuickAction) -> some View {
         switch action {
         case .menu:
-            QuickActionSheet { picked in
-                // Swap the menu for the chosen destination on the next runloop so the sheet
-                // re-presents cleanly (avoids dismiss/re-present races). Calm easing on re-present.
-                quickAction = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(Self.sheetEase) { quickAction = picked }
+            if whoopHomeEnabled {
+                WhoopPlusMenuSheet(
+                    onStartActivity: { swapQuickAction(.startActivity) },
+                    onAddActivity: { swapQuickAction(.addActivity) },
+                    onJournal: { swapQuickAction(.journal) },
+                    onLive: { swapQuickAction(.liveActivity) },
+                    onBreathwork: { swapQuickAction(.breathwork) }
+                )
+                .presentationDetents([.height(380)])
+                .presentationDragIndicator(.hidden)
+            } else {
+                QuickActionSheet { picked in
+                    // Swap the menu for the chosen destination on the next runloop so the sheet
+                    // re-presents cleanly (avoids dismiss/re-present races). Calm easing on re-present.
+                    swapQuickAction(picked)
                 }
+                .presentationDetents([.height(344)])
+                .presentationDragIndicator(.hidden)
             }
-            .presentationDetents([.height(344)])
-            .presentationDragIndicator(.hidden)
         case .live:
             quickScreen(LiveView())
         case .workout:
             quickScreen(WorkoutsView())
         case .journal:
-            quickScreen(InsightsView())
+            if whoopHomeEnabled {
+                WhoopJournalView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.hidden)
+            } else {
+                quickScreen(InsightsView())
+            }
         case .breathe:
             quickScreen(BreathingView())
+        case .startActivity:
+            WhoopActivityCoordinator(mode: .start)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        case .addActivity:
+            WhoopActivityCoordinator(mode: .add)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        case .breathwork:
+            quickScreen(WhoopBreathworkView())
+        case .liveActivity:
+            WhoopLiveActivityView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        }
+    }
+
+    private func swapQuickAction(_ picked: QuickAction) {
+        quickAction = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(Self.sheetEase) { quickAction = picked }
         }
     }
 
@@ -414,20 +502,23 @@ struct RootTabView: View {
 
     /// The Devices manager wrapped in its own nav stack + Done button (mirrors `quickScreen`, but
     /// dismisses the dedicated `showDevices` sheet rather than the quick-action item).
-    private var devicesScreen: some View {
-        NavigationStack {
-            DevicesView()
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
-                // #1027: same fix as quickScreen — Devices draws the full-bleed liquid sky, so a transparent
-                // nav bar keeps it edge-to-edge instead of an opaque band clipping the top on scroll.
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showDevices = false }
-                            .foregroundStyle(StrandPalette.accent)
+    @ViewBuilder private var devicesScreen: some View {
+        if whoopHomeEnabled {
+            WhoopDevicesView()
+                .preferredColorScheme(.dark)
+        } else {
+            NavigationStack {
+                DevicesView()
+                    .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showDevices = false }
+                                .foregroundStyle(StrandPalette.accent)
+                        }
                     }
-                }
+            }
         }
     }
 
@@ -443,8 +534,14 @@ struct RootTabView: View {
         // TabRoute values, registered here ONCE per stack (a double registration double-pushes, #38).
         NavigationStack(path: path) {
             view
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
                 .toolbar(.hidden, for: .navigationBar)
+                .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+                .toolbarBackground(whoopHomeEnabled ? WhoopIOSDesign.background : StrandPalette.surfaceBase, for: .navigationBar)
+                .toolbarColorScheme(whoopHomeEnabled ? .dark : nil, for: .navigationBar)
                 .tabRouteDestinations()
         }
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
@@ -460,6 +557,10 @@ struct RootTabView: View {
     // rows in a single grouped NoopCard with hairline dividers — the same row idiom Settings/Health use.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         NavigationStack(path: path) {
+            Group {
+              if whoopHomeEnabled {
+                WhoopSettingsHubView()
+              } else {
             ScreenScaffold(title: "More", subtitle: "Everything else, one tap away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
@@ -518,6 +619,8 @@ struct RootTabView: View {
                     MoreRow("Settings", "gearshape.fill", .settings)
                 }
             }
+              } // end classic more
+            } // end Group
             // The rows push MoreDestination VALUES so a re-tap of the More tab can pop them off the
             // bound path (#135/#198). Each destination keeps the per-screen wrapper the rows used to
             // apply inline (surfaceBase background, inline title bar, hidden bar background):
@@ -527,10 +630,21 @@ struct RootTabView: View {
             // identical at rest — the destination's own surfaceBase background shows through the bar.
             .navigationDestination(for: MoreDestination.self) { route in
                 route.destination
-                    .background(StrandPalette.surfaceBase.ignoresSafeArea())
+                    .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbarBackground(WhoopIOSDesign.background, for: .navigationBar)
+                    .toolbarBackground(whoopHomeEnabled ? .visible : .hidden, for: .navigationBar)
+                    .toolbarColorScheme(whoopHomeEnabled ? .dark : nil, for: .navigationBar)
+                    .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
             }
+            .toolbar(whoopHomeEnabled ? .hidden : .visible, for: .tabBar)
+            .background {
+                    if whoopHomeEnabled { WhoopIOSDesign.pageBackground.ignoresSafeArea() }
+                    else { StrandPalette.surfaceBase.ignoresSafeArea() }
+                }
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)
@@ -596,6 +710,17 @@ struct RootTabView: View {
 /// (#198): a closure-destination push would bypass the path and be un-poppable on tab re-tap. The
 /// per-screen chrome the old inline links applied lives at the single `navigationDestination(for:)`
 /// registration in `moreTab`.
+private struct MoreSettingsDestination: View {
+    @AppStorage("noop.whoopHomeEnabled") private var whoopHomeEnabled = true
+    var body: some View {
+        if whoopHomeEnabled {
+            WhoopSettingsHubView()
+        } else {
+            SettingsView()
+        }
+    }
+}
+
 private enum MoreDestination: Hashable {
     case insightsHub, intelligence, coach, insights, explore, compare
     case live, workouts, liftLog, health, labBook, stress, breathe, intervals, rhythm
@@ -631,7 +756,7 @@ private enum MoreDestination: Hashable {
         case .testCentre:      TestCentreView()
         case .siriShortcuts:   SiriShortcutsSettingsView()
         case .powerSaving:     PowerSavingView()
-        case .settings:        SettingsView()
+        case .settings:        MoreSettingsDestination()
         }
     }
 }
@@ -691,6 +816,7 @@ private struct MoreRow: View {
 /// route to existing screens. `Identifiable` so it drives `.sheet(item:)`.
 private enum QuickAction: Int, Identifiable {
     case menu, live, workout, journal, breathe
+    case startActivity, addActivity, breathwork, liveActivity
     var id: Int { rawValue }
 }
 

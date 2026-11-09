@@ -7,7 +7,23 @@ import SwiftUI
 // bindings, while cards, gauges, typography, and chrome share one maintainable source of truth.
 
 public enum NoopVisualStyle {
-    // Neutral, low-chroma surfaces sampled from the supplied dark-mode reference.
+    // Neutral surfaces. On iOS the dark palette follows the WHOOP-inspired true-black home (#000 canvas,
+    // #1C1C1E cards); macOS/Android keep the prior Liquid Metal navy charcoal.
+    #if os(iOS)
+    public static let canvas = Color(light: "#F3F4F6", dark: "#000000")
+    public static let surface = Color(light: "#FFFFFF", dark: "#1C1C1E")
+    public static let surfaceTop = Color(light: "#FFFFFF", dark: "#1C1C1E")
+    public static let surfaceBottom = Color(light: "#F4F5F7", dark: "#181818")
+    public static let inset = Color(light: "#E8E9ED", dark: "#2C2C2E")
+
+    public static let border = Color(light: "#D8DAE0", dark: "#3A3A3C")
+    public static let borderHighlight = Color(light: "#FFFFFF", dark: "#48484A")
+    public static let divider = Color(light: "#E4E5E9", dark: "#3A3A3C")
+
+    public static let primaryText = Color(light: "#17181C", dark: "#FFFFFF")
+    public static let secondaryText = Color(light: "#555861", dark: "#8E8E93")
+    public static let tertiaryText = Color(light: "#7D808A", dark: "#636366")
+    #else
     public static let canvas = Color(light: "#F3F4F6", dark: "#1D1E23")
     public static let surface = Color(light: "#FFFFFF", dark: "#2A2C34")
     public static let surfaceTop = Color(light: "#FFFFFF", dark: "#30323B")
@@ -21,12 +37,17 @@ public enum NoopVisualStyle {
     public static let primaryText = Color(light: "#17181C", dark: "#F7F7FA")
     public static let secondaryText = Color(light: "#555861", dark: "#C3C4CA")
     public static let tertiaryText = Color(light: "#7D808A", dark: "#7D7F88")
+    #endif
 
     public static let mint = Color(light: "#149A78", dark: "#69DDB8")
     public static let mintDeep = Color(light: "#0D765C", dark: "#13A982")
     public static let mintGlow = Color(light: "#38C99E", dark: "#54E6BD")
 
+    #if os(iOS)
+    public static let cardRadius: CGFloat = 18
+    #else
     public static let cardRadius: CGFloat = 22
+    #endif
     public static let compactRadius: CGFloat = 16
     public static let pillRadius: CGFloat = 999
     public static let pagePadding: CGFloat = 16
