@@ -41,6 +41,14 @@ struct WhoopSettingsHubView: View {
                     .buttonStyle(.plain)
 
                     NavigationLink {
+                        WhoopOtherDevicesDestination()
+                    } label: {
+                        settingsRow(icon: "arrow.triangle.2.circlepath", title: "OTHER DEVICES",
+                                    subtitle: "Sync an Oura ring, heart-rate straps & more")
+                    }
+                    .buttonStyle(.plain)
+
+                    NavigationLink {
                         WhoopAppSettingsView()
                     } label: {
                         settingsRow(icon: "list.clipboard", title: "APP SETTINGS")

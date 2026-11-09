@@ -59,13 +59,10 @@ struct WhoopDevicesView: View {
                     .buttonStyle(.plain)
                     .padding(.top, 8)
 
-                    Button { showClassicWizard = true } label: {
-                        Text("Browse all device types")
-                            .font(WhoopType.body(14))
-                            .foregroundStyle(WhoopIOSDesign.strainBlue)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.plain)
+                    // Restored from classic NOOP: the multi-device manager (Oura ring, other HR straps)
+                    // that the Whoople Devices hub had reduced to a small "Browse all device types" link.
+                    otherDevicesSection
+                        .padding(.top, 12)
                 }
                 .padding(.horizontal, WhoopIOSDesign.pageMargin)
                 .padding(.top, 12)
@@ -106,6 +103,63 @@ struct WhoopDevicesView: View {
                     .preferredColorScheme(.dark)
             }
         }
+    }
+
+    /// "Other devices" — pair and sync an Oura ring or another band via the classic NOOP flows.
+    private var otherDevicesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("OTHER DEVICES")
+                .font(WhoopType.rowCaps(12))
+                .tracking(1)
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
+            VStack(spacing: 8) {
+                NavigationLink {
+                    WhoopOtherDevicesDestination()
+                } label: {
+                    otherDeviceRow(icon: "arrow.triangle.2.circlepath",
+                                   title: "SYNC OTHER DEVICES",
+                                   subtitle: "Oura ring, heart-rate straps & more")
+                }
+                .buttonStyle(.plain)
+
+                Button { showClassicWizard = true } label: {
+                    otherDeviceRow(icon: "plus.circle",
+                                   title: "ADD ANOTHER DEVICE",
+                                   subtitle: "Pair an Oura ring or another band")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func otherDeviceRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(.white)
+                .frame(width: 28, alignment: .center)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(WhoopType.rowCaps(14))
+                    .tracking(0.7)
+                    .foregroundStyle(.white)
+                Text(subtitle)
+                    .font(WhoopType.caption(12))
+                    .foregroundStyle(WhoopIOSDesign.textSecondary)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WhoopIOSDesign.textSecondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: WhoopIOSDesign.cardRadius, style: .continuous)
+                .fill(WhoopIOSDesign.surfaceList)
+        )
+        .contentShape(Rectangle())
     }
 
     private var emptyCard: some View {
@@ -159,6 +213,18 @@ struct WhoopDevicesView: View {
                     .foregroundStyle(WhoopIOSDesign.textSecondary)
             }
         }
+    }
+}
+
+/// The classic NOOP Devices manager (every paired band incl. Oura ring: pair, sync, make active),
+/// pushed under Whoople chrome with the same wrapper the pre-Whoople Devices sheet used.
+struct WhoopOtherDevicesDestination: View {
+    var body: some View {
+        DevicesView()
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .preferredColorScheme(.dark)
     }
 }
 
